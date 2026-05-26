@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epigraph — Research Knowledge OS</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #151b23;
+  --bg3: #1c2330;
+  --bg4: #222d3d;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #e2e8f0;
+  --text2: #8899aa;
+  --text3: #556677;
+  --amber: #f59e0b;
+  --amber2: #fbbf24;
+  --green: #22c55e;
+  --blue: #3b82f6;
+  --red: #ef4444;
+  --orange: #f97316;
+  --purple: #a78bfa;
+  --cyan: #06b6d4;
+  --conf-established: #22c55e;
+  --conf-likely: #f59e0b;
+  --conf-contested: #ef4444;
+  --conf-speculation: #8899aa;
+  --conf-yours: #a78bfa;
+  --strand-jam: #f97316;
+  --strand-col: #22c55e;
+  --strand-yap: #a78bfa;
+  --strand-nuc: #06b6d4;
+  --strand-proj: #f59e0b;
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; }
+
+/* ─── LAYOUT ─── */
+#shell { display: flex; flex-direction: column; height: 100vh; }
+#topbar { display: flex; align-items: center; gap: 16px; padding: 0 16px; height: 44px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#topbar .logo { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--amber); letter-spacing: 0.05em; }
+#topbar .logo span { color: var(--text3); }
+.top-tabs { display: flex; gap: 2px; }
+.top-tab { padding: 4px 12px; border-radius: 4px; font-size: 12px; color: var(--text2); cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.top-tab:hover { color: var(--text); background: var(--bg3); }
+.top-tab.active { color: var(--amber); background: rgba(245,158,11,0.1); }
+#topbar .spacer { flex: 1; }
+.streak { font-family: var(--mono); font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.streak-fire { color: var(--orange); }
+.add-btn { padding: 5px 12px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.add-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ─── FEED PANEL ─── */
+#feed-panel { width: 280px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.panel-header { padding: 12px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.panel-title { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.topic-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.topic-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border); color: var(--text3); cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.topic-pill.on { border-color: var(--amber); color: var(--amber); }
+.fetch-row { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.fetch-btn { flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.fetch-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.fetch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#feed-list { flex: 1; overflow-y: auto; padding: 8px; }
+#feed-list::-webkit-scrollbar { width: 3px; }
+#feed-list::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+.paper-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+.paper-card:hover { border-color: var(--border2); }
+.paper-card.selected { border-color: var(--cyan); }
+.paper-source { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.src-badge { font-size: 9px; font-family: var(--mono); padding: 1px 5px; border-radius: 3px; }
+.src-pm { background: rgba(34,197,94,0.15); color: var(--green); }
+.src-bx { background: rgba(245,158,11,0.15); color: var(--amber); }
+.paper-date { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-left: auto; }
+.paper-title { font-size: 12px; line-height: 1.4; color: var(--text); margin-bottom: 4px; }
+.paper-authors { font-size: 10px; color: var(--text3); margin-bottom: 6px; }
+.paper-actions { display: flex; gap: 4px; }
+.pa-btn { flex: 1; padding: 4px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--text3); font-size: 10px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; text-align: center; }
+.pa-btn:hover { border-color: var(--border2); color: var(--text); }
+.pa-btn.assign { border-color: rgba(167,139,250,0.4); color: var(--purple); }
+.pa-btn.assign:hover { background: rgba(167,139,250,0.1); }
+
+/* ─── MAP PANEL ─── */
+#map-panel { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+#map-canvas { width: 100%; height: 100%; cursor: grab; }
+#map-canvas.grabbing { cursor: grabbing; }
+.map-controls { position: absolute; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 4px; }
+.mc-btn { width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.mc-btn:hover { border-color: var(--amber); color: var(--amber); }
+.strand-legend { position: absolute; bottom: 16px; left: 16px; display: flex; flex-direction: column; gap: 4px; }
+.sl-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.sl-dot { width: 8px; height: 8px; border-radius: 50%; }
+.map-filter-bar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+.mf-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; color: var(--text3); cursor: pointer; font-family: var(--mono); transition: all 0.15s; border: none; background: transparent; }
+.mf-btn:hover { color: var(--text); }
+.mf-btn.on { background: var(--bg4); color: var(--text); }
+
+/* ─── SVG NODES ─── */
+.claim-node { cursor: pointer; transition: opacity 0.2s; }
+.claim-node:hover .node-ring { opacity: 1; }
+.node-ring { opacity: 0; transition: opacity 0.2s; }
+.node-label { pointer-events: none; }
+.edge-path { fill: none; stroke-width: 1.5; opacity: 0.35; marker-end: url(#arrowhead); }
+
+/* ─── RIGHT PANEL ─── */
+#right-panel { width: 320px; flex-shrink: 0; background: var(--bg2); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.right-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.rt-tab { flex: 1; padding: 10px 8px; font-size: 11px; font-family: var(--mono); color: var(--text3); cursor: pointer; text-align: center; transition: all 0.15s; border-bottom: 2px solid transparent; }
+.rt-tab:hover { color: var(--text); }
+.rt-tab.on { color: var(--amber); border-bottom-color: var(--amber); }
+.right-body { flex: 1; overflow-y: auto; padding: 12px; }
+.right-body::-webkit-scrollbar { width: 3px; }
+.right-body::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+/* ─── CLAIM DETAIL ─── */
+.claim-detail { display: flex; flex-direction: column; gap: 10px; }
+.cd-title { font-size: 14px; line-height: 1.5; color: var(--text); font-weight: 500; }
+.cd-conf { display: flex; align-items: center; gap: 8px; }
+.cd-conf-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cd-conf-label { font-family: var(--mono); font-size: 11px; }
+.cd-strand-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-family: var(--mono); }
+.cd-section { background: var(--bg3); border-radius: 5px; padding: 8px 10px; }
+.cd-sec-label { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+.cd-sec-val { font-size: 12px; line-height: 1.6; color: var(--text2); }
+.cd-sec-val.for { color: #86efac; }
+.cd-sec-val.against { color: #fca5a5; }
+.cd-sec-val.open { color: #fcd34d; }
+.conf-selector { display: flex; gap: 4px; flex-wrap: wrap; }
+.conf-opt { padding: 3px 8px; border-radius: 10px; border: 1px solid var(--border); font-size: 10px; font-family: var(--mono); cursor: pointer; transition: all 0.15s; color: var(--text3); }
+.conf-opt.selected { border-color: currentColor; }
+.conf-opt[data-c="established"] { color: var(--conf-established); }
+.conf-opt[data-c="established"].selected { background: rgba(34,197,94,0.1); }
+.conf-opt[data-c="likely"] { color: var(--conf-likely); }
+.conf-opt[data-c="likely"].selected { background: rgba(245,158,11,0.1); }
+.conf-opt[data-c="contested"] { color: var(--conf-contested); }
+.conf-opt[data-c="contested"].selected { background: rgba(239,68,68,0.1); }
+.conf-opt[data-c="speculation"] { color: var(--conf-speculation); }
+.conf-opt[data-c="speculation"].selected { background: rgba(136,153,170,0.1); }
+.conf-opt[data-c="yours"] { color: var(--conf-yours); }
+.conf-opt[data-c="yours"].selected { background: rgba(167,139,250,0.1); }
+.linked-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.linked-chip { padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border); font-size: 10px; color: var(--text2); cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.linked-chip:hover { border-color: var(--amber); color: var(--amber); }
+.action-row { display: flex; gap: 6px; }
+.action-btn { flex: 1; padding: 7px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; text-align: center; }
+.action-btn:hover { border-color: var(--amber); color: var(--amber); }
+.action-btn.primary { border-color: rgba(167,139,250,0.4); color: var(--purple); }
+.action-btn.primary:hover { background: rgba(167,139,250,0.1); }
+
+/* ─── PROJECTS ─── */
+.proj-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+.proj-card.active-proj { border-color: rgba(245,158,11,0.3); }
+.proj-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+.proj-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; margin-top: 4px; }
+.proj-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; }
+.proj-status { font-size: 10px; font-family: var(--mono); color: var(--text3); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); }
+.proj-linked { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.proj-linked span { color: var(--purple); cursor: pointer; }
+.proj-linked span:hover { color: var(--amber); }
+.proj-notes { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px; color: var(--text); font-size: 12px; font-family: var(--sans); resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s; line-height: 1.6; }
+.proj-notes:focus { border-color: var(--border2); }
+.proj-notes::placeholder { color: var(--text3); }
+.new-proj-form { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+.form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; color: var(--text); font-size: 12px; font-family: var(--sans); outline: none; margin-bottom: 6px; }
+.form-input:focus { border-color: var(--border2); }
+.form-row { display: flex; gap: 6px; }
+.form-btn { padding: 5px 12px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.form-btn.ok { border-color: rgba(34,197,94,0.4); color: var(--green); }
+.form-btn.ok:hover { background: rgba(34,197,94,0.08); }
+.form-btn:hover { color: var(--text); }
+
+/* ─── NOTES ─── */
+.note-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+.note-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.note-date { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.note-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--bg4); color: var(--text2); font-family: var(--mono); }
+.note-area { width: 100%; background: transparent; border: none; color: var(--text); font-size: 12px; font-family: var(--sans); resize: none; outline: none; min-height: 60px; line-height: 1.6; }
+.note-area::placeholder { color: var(--text3); }
+.new-note-btn { width: 100%; padding: 8px; border-radius: 4px; border: 1px dashed var(--border2); background: transparent; color: var(--text3); font-size: 11px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; margin-bottom: 10px; }
+.new-note-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ─── CONTEXT MENU ─── */
+#ctx-menu { position: fixed; background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; padding: 4px; z-index: 1000; display: none; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.ctx-item { padding: 6px 10px; border-radius: 4px; font-size: 12px; color: var(--text2); cursor: pointer; font-family: var(--mono); transition: all 0.1s; }
+.ctx-item:hover { background: var(--bg4); color: var(--text); }
+.ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+/* ─── MODAL ─── */
+#modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 900; display: none; align-items: center; justify-content: center; }
+#modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px; padding: 20px; width: 480px; max-height: 80vh; overflow-y: auto; }
+.modal h3 { font-family: var(--mono); font-size: 13px; color: var(--amber); margin-bottom: 14px; }
+.modal label { display: block; font-size: 11px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; margin-top: 10px; }
+.modal input, .modal textarea, .modal select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 7px 9px; color: var(--text); font-size: 12px; font-family: var(--sans); outline: none; }
+.modal textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
+.modal select { cursor: pointer; }
+.modal-btns { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+.modal-btn { padding: 7px 16px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.modal-btn.save { border-color: rgba(34,197,94,0.5); color: var(--green); }
+.modal-btn.save:hover { background: rgba(34,197,94,0.08); }
+.modal-btn:hover { color: var(--text); }
+
+/* ─── ASSIGN MODAL ─── */
+.claim-option { padding: 8px 10px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 4px; cursor: pointer; transition: all 0.15s; }
+.claim-option:hover { border-color: var(--border2); background: var(--bg3); }
+.claim-option.for { border-left: 3px solid var(--green); }
+.claim-option.against { border-left: 3px solid var(--red); }
+.co-title { font-size: 12px; color: var(--text); }
+.co-sub { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.assign-type { display: flex; gap: 6px; margin-bottom: 10px; }
+.at-btn { flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: transparent; font-size: 11px; font-family: var(--mono); cursor: pointer; color: var(--text3); transition: all 0.15s; text-align: center; }
+.at-btn.sel { background: var(--bg3); }
+.at-btn[data-t="for"].sel { border-color: var(--green); color: var(--green); }
+.at-btn[data-t="against"].sel { border-color: var(--red); color: var(--red); }
+
+/* ─── EMPTY STATES ─── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 12px; font-family: var(--mono); line-height: 1.8; }
+
+/* ─── TOAST ─── */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 16px; font-size: 12px; font-family: var(--mono); color: var(--text); opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 2000; }
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">epi<span>graph</span></div>
+    <div class="top-tabs">
+      <div class="top-tab active" onclick="switchView('map')">map</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="streak"><span class="streak-fire">◆</span> <span id="streak-label">day 1</span></div>
+    <button class="add-btn" onclick="openNewClaimModal()">+ claim</button>
+    <button class="add-btn" onclick="openNewProjectModal()">+ project</button>
+  </div>
+
+  <div id="main">
+
+    <!-- FEED PANEL -->
+    <div id="feed-panel">
+      <div class="panel-header">
+        <div class="panel-title">feed</div>
+        <div class="topic-pills" id="topic-pills"></div>
+      </div>
+      <div class="fetch-row">
+        <button class="fetch-btn" id="fetch-btn" onclick="fetchPapers()">⟳ fetch today</button>
+      </div>
+      <div id="feed-list"><div class="empty-state">fetch papers from<br>pubmed + biorxiv<br>for active topics</div></div>
+    </div>
+
+    <!-- MAP PANEL -->
+    <div id="map-panel">
+      <div class="map-filter-bar">
+        <button class="mf-btn on" data-f="all" onclick="filterMap('all')">all</button>
+        <button class="mf-btn" data-f="jam" onclick="filterMap('jam')">jamming</button>
+        <button class="mf-btn" data-f="col" onclick="filterMap('col')">migration</button>
+        <button class="mf-btn" data-f="yap" onclick="filterMap('yap')">YAP</button>
+        <button class="mf-btn" data-f="nuc" onclick="filterMap('nuc')">nematic</button>
+      </div>
+      <svg id="map-canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" viewBox="0 0 10 6" refX="8" refY="3" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0L10 3L0 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+        <g id="map-viewport">
+          <g id="edges-layer"></g>
+          <g id="nodes-layer"></g>
+        </g>
+      </svg>
+      <div class="map-controls">
+        <button class="mc-btn" title="zoom in" onclick="zoomMap(1.2)">+</button>
+        <button class="mc-btn" title="zoom out" onclick="zoomMap(0.83)">−</button>
+        <button class="mc-btn" title="fit all" onclick="fitMap()" style="font-size:12px">⊡</button>
+      </div>
+      <div class="strand-legend">
+        <div class="sl-item"><div class="sl-dot" style="background:var(--strand-jam)"></div>jamming</div>
+        <div class="sl-item"><div class="sl-dot" style="background:var(--strand-col)"></div>migration</div>
+        <div class="sl-item"><div class="sl-dot" style="background:var(--strand-yap)"></div>YAP/packing</div>
+        <div class="sl-item"><div class="sl-dot" style="background:var(--strand-nuc)"></div>nematic</div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div class="right-tabs">
+        <div class="rt-tab on" onclick="switchRightTab('claim')" id="rt-claim">claim</div>
+        <div class="rt-tab" onclick="switchRightTab('projects')" id="rt-projects">projects</div>
+        <div class="rt-tab" onclick="switchRightTab('notes')" id="rt-notes">lab notes</div>
+      </div>
+      <div class="right-body" id="right-body">
+        <div class="empty-state">click a claim<br>on the map<br>to explore it</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-edit" onclick="ctxEdit()">✎ edit claim</div>
+  <div class="ctx-item" id="ctx-note" onclick="ctxNote()">✦ add note here</div>
+  <div class="ctx-item" id="ctx-link" onclick="ctxLink()">⟷ link to claim</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-claude" onclick="ctxClaude()">◆ ask Claude</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-delete" onclick="ctxDelete()" style="color:#ef4444">✕ delete</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal" id="modal-box"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+var STATE = {
+  claims: [],
+  projects: [],
+  notes: [],
+  papers: [],
+  topics: [
+    {l:'YAP/TAZ', q:'YAP TAZ mechanotransduction epithelial', on:true},
+    {l:'collective migration', q:'collective cell migration epithelial monolayer', on:true},
+    {l:'jamming', q:'cell jamming unjamming epithelial tissue', on:true},
+    {l:'active matter', q:'active matter tissue mechanics epithelial', on:true},
+    {l:'nuclear mechanics', q:'nuclear mechanics YAP lamin', on:true},
+    {l:'vertex model', q:'vertex model epithelial tissue mechanics', on:false},
+    {l:'E-cadherin', q:'E-cadherin adherens junction mechanics', on:false},
+    {l:'traction force', q:'traction force monolayer stress microscopy', on:false},
+  ],
+  mapTransform: {x:0, y:0, scale:1},
+  streak: 1,
+  lastOpen: new Date().toDateString()
+};
+
+var selectedClaimId = null;
+var ctxTargetId = null;
+var linkingFrom = null;
+var rightTab = 'claim';
+var mapFilter = 'all';
+var assignPaper = null;
+var assignType = 'for';
+var editingNoteId = null;
+
+// ─── SEED DATA ────────────────────────────────────────────────────────────────
+var SEED_CLAIMS = [
+  {id:'j1',strand:'jam',conf:'established',title:'Epithelia transition between solid (jammed) and fluid (unjammed) states as an actively regulated switch',mechanism:'Crowding, adhesion strength, and actomyosin fluctuations control jamming — analogous to passive phase diagram but actively driven',forPapers:'Angelini 2011; Park 2015; Atia 2021; Mitchel 2020; Palamidessi 2019',againstPapers:'Glass analogy disputed: true transition vs. kinetic arrest unresolved',open:'Is jamming a thermodynamic transition or kinetic arrest? How do division/extrusion couple to fluidization?',leads:['j2','j3','y3'],x:200,y:160},
+  {id:'j2',strand:'jam',conf:'established',title:'Cell shape index p = P/√A predicts jamming state; p > 3.81 → fluid phase',mechanism:'Vertex model: perimeter-to-area ratio encodes neighbor-exchange energy cost; above threshold tissue flows',forPapers:'Bi 2015/2016; Park 2015; Atia 2021; Eckert 2023',againstPapers:'Biological noise means threshold is not sharp in real tissue',open:'Does shape index cause or reflect jamming? 3D extension unclear.',leads:['j3'],x:100,y:330},
+  {id:'j3',strand:'jam',conf:'likely',title:'Unjamming is mechanistically distinct from EMT — cells retain epithelial identity during unjamming',mechanism:'Collective fluidization via shape change and motility without loss of E-cadherin or mesenchymal markers',forPapers:'Mitchel 2020; Palamidessi 2019',againstPapers:'Partial EMT can co-occur and is difficult to distinguish experimentally',open:'What molecular markers unambiguously separate unjamming from partial EMT in vivo?',leads:['y3'],x:300,y:330},
+  {id:'y1',strand:'yap',conf:'established',title:'YAP is activated by substrate stiffness via actomyosin tension and cytoskeletal reorganization',mechanism:'ECM stiffness → integrin clustering → RhoA/ROCK → F-actin → LATS1/2 inhibition → YAP nuclear translocation',forPapers:'Dupont 2011; Zhao 2007; Elosegui-Artola; Piccolo 2014',againstPapers:'YAP activation can occur independent of actomyosin in some contexts',open:'Quantitative stiffness threshold? Role of viscoelasticity vs. elastic stiffness?',leads:['y2','y3'],x:620,y:160},
+  {id:'y2',strand:'yap',conf:'established',title:'Cell density suppresses YAP via Hippo/LATS and junction-mediated mechanosensing',mechanism:'E-cadherin → NF2/Merlin → LATS1/2 phosphorylation → YAP cytoplasmic sequestration; α-catenin dependent',forPapers:'Zhao 2007; Aragona 2013; Piccolo 2014; Totaro 2018',againstPapers:'YAP can remain nuclear at high density on stiff substrates (Nardone 2017)',open:'How is density-YAP relationship modulated by ECM stiffness at intermediate densities?',leads:['y3'],x:720,y:330},
+  {id:'y3',strand:'yap',conf:'yours',title:'Local packing fraction overrides substrate stiffness as the primary YAP determinant in collectives',mechanism:'Sparse regions → nuclear YAP regardless of stiffness; dense regions → cytoplasmic YAP regardless of contractility. Packing gates all other mechanical inputs.',forPapers:'Grudtsyna, Swaminathan & Doostmohammadi 2025 ★; Devany 2021/2023; Totaro 2018',againstPapers:'Single-cell experiments show stiffness→YAP reliably; reconciling scales unresolved',open:'Does packing override hold in 3D / in vivo? Same variable as individual pressure history?',leads:['j1'],x:480,y:470},
+  {id:'c1',strand:'col',conf:'established',title:'Collective migration requires long-range intercellular stress transmission from the leading edge',mechanism:'Leader cells → traction forces → E-cadherin junctions → follower cells polarize along principal stress axes (plithotaxis)',forPapers:'Trepat 2009; Serra-Picamal 2012; Hino 2020; Tambe 2011',againstPapers:'Leader cell necessity contested in some geometries; compressive stresses also present',open:'What determines leader cell identity? How far can stress propagate before dissipating?',leads:['c2','c3'],x:480,y:160},
+  {id:'c2',strand:'col',conf:'likely',title:'ERK mechanochemical waves couple mechanical stretch to collective polarization across the monolayer',mechanism:'Stretch → EGFR → ERK → ROCK → contraction → neighbor stretch → propagating wave; abolished by α-catenin KO',forPapers:'Hino 2020; Serra-Picamal 2012',againstPapers:'Wave propagation mainly shown in wound-healing geometry; generality unclear',open:'Does ERK wave directionality instruct YAP? Coupling to jamming state?',leads:['c3'],x:380,y:330},
+  {id:'c3',strand:'col',conf:'likely',title:'Single epithelial cells are contractile but collectives are extensile — E-cadherin reverses the sign of collective stress',mechanism:'Cell-cell junctions actively elongate neighbors rather than compress; tissue-level stress sign flips from single-cell prediction',forPapers:'Balasubramaniam 2021',againstPapers:'Context-dependent: shown in specific geometries/cell types',open:'When does extensile-to-contractile crossover occur? Role of junction maturation?',leads:['n1'],x:500,y:330},
+  {id:'n1',strand:'nuc',conf:'likely',title:'Epithelial monolayers organize as nematics at low density and shift toward hexatic order at high density',mechanism:'Low density: elongated cells → nematic alignment, half-integer defects. High density: E-cadherin → hexagonal packing, nematic correlation shrinks',forPapers:'Eckert 2023; Saw 2017; Balasubramaniam 2021',againstPapers:'Simultaneous hexanematic symmetry challenges clean categorization',open:'What controls the crossover density? Does nematic→hexatic shift regulate fate decisions?',leads:['n2'],x:700,y:470},
+  {id:'n2',strand:'nuc',conf:'likely',title:'+½ topological defects concentrate compressive stress and are sites of cell extrusion / apoptosis',mechanism:'+½ defects → compressive normal stress → Piezo1 → Ca²⁺ → actomyosin contraction → basal extrusion',forPapers:'Saw 2017; Duclos 2017; Sonam 2023',againstPapers:'Causal direction unclear: crowding→defect or defect→crowding? Mainly MDCK.',open:'Does crowding produce defects, or do defects generate crowding that activates Piezo1?',leads:['y2','j1'],x:840,y:330},
+  {id:'g1',strand:'yap',conf:'yours',title:'Lagrangian coherent structures (flow skeleton) precede and drive stress reorganization — not the reverse',mechanism:'LCS attractors/repellers in cellular flows mark compressive/tensile stress hotspots (>10×), bridging cell motion to tissue mechanics via junction properties',forPapers:'Grudtsyna, Bölsterli & Doostmohammadi (preprint) ★',againstPapers:'Causal demonstration requires perturbation experiments beyond correlation',open:'Do LCS structures couple to defect positions? To YAP activation hotspots?',leads:['n2','y3'],x:840,y:160},
+];
+
+var SEED_PROJECTS = [
+  {id:'p1',name:'Packing fraction × YAP in 3D',status:'active',linkedClaims:['y3'],hypothesis:'Local packing fraction override of YAP extends to 3D organoid geometry',notes:'Starting with MDCK cysts — need to establish packing fraction measurement in 3D confocal stacks. Talk to Amin about segmentation pipeline.',created:new Date().toISOString()},
+  {id:'p2',name:'LCS → defect coupling',status:'planning',linkedClaims:['g1','n2'],hypothesis:'LCS attractor positions predict +½ defect nucleation sites with a time lead',notes:'Need simultaneous TFM + orientation imaging. Check if current setup has the temporal resolution.',created:new Date().toISOString()},
+];
+
+var SEED_NOTES = [
+  {id:'n1x',linkedClaim:'y3',text:'The packing override effect might be stronger at intermediate stiffness — worth checking the 5 kPa data more carefully. Also: does YAP respond to packing rate of change or absolute packing?',date:new Date().toISOString(),tag:'analysis'},
+  {id:'n2x',linkedClaim:'n2',text:'Interesting: Piezo1 and topological defects — has anyone measured Piezo1 activity specifically at +½ defect sites? Could be a clean experiment.',date:new Date().toISOString(),tag:'idea'},
+];
+
+function initState() {
+  try {
+    var saved = localStorage.getItem('epigraph_v1');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      STATE.claims = parsed.claims || SEED_CLAIMS;
+      STATE.projects = parsed.projects || SEED_PROJECTS;
+      STATE.notes = parsed.notes || SEED_NOTES;
+      STATE.papers = parsed.papers || [];
+      STATE.topics = parsed.topics || STATE.topics;
+      STATE.streak = parsed.streak || 1;
+      STATE.lastOpen = parsed.lastOpen || new Date().toDateString();
+    } else {
+      STATE.claims = JSON.parse(JSON.stringify(SEED_CLAIMS));
+      STATE.projects = JSON.parse(JSON.stringify(SEED_PROJECTS));
+      STATE.notes = JSON.parse(JSON.stringify(SEED_NOTES));
+    }
+    // streak
+    var today = new Date().toDateString();
+    if (STATE.lastOpen !== today) {
+      var last = new Date(STATE.lastOpen);
+      var now = new Date(today);
+      var diff = Math.floor((now - last) / 86400000);
+      STATE.streak = diff === 1 ? STATE.streak + 1 : 1;
+      STATE.lastOpen = today;
+      save();
+    }
+    document.getElementById('streak-label').textContent = 'day ' + STATE.streak;
+  } catch(e) {
+    STATE.claims = JSON.parse(JSON.stringify(SEED_CLAIMS));
+    STATE.projects = JSON.parse(JSON.stringify(SEED_PROJECTS));
+    STATE.notes = JSON.parse(JSON.stringify(SEED_NOTES));
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem('epigraph_v1', JSON.stringify({
+      claims: STATE.claims, projects: STATE.projects,
+      notes: STATE.notes, papers: STATE.papers,
+      topics: STATE.topics, streak: STATE.streak, lastOpen: STATE.lastOpen
+    }));
+  } catch(e) {}
+}
+
+// ─── MAP RENDERING ────────────────────────────────────────────────────────────
+var STRAND_COLOR = {jam:'#f97316',col:'#22c55e',yap:'#a78bfa',nuc:'#06b6d4'};
+var CONF_COLOR = {established:'#22c55e',likely:'#f59e0b',contested:'#ef4444',speculation:'#8899aa',yours:'#a78bfa'};
+
+function claimColor(c) { return c.conf==='yours' ? '#a78bfa' : STRAND_COLOR[c.strand] || '#8899aa'; }
+
+function renderMap() {
+  var svg = document.getElementById('map-canvas');
+  var edgesLayer = document.getElementById('edges-layer');
+  var nodesLayer = document.getElementById('nodes-layer');
+  edgesLayer.innerHTML = '';
+  nodesLayer.innerHTML = '';
+
+  var visible = STATE.claims.filter(function(c) {
+    return mapFilter === 'all' || c.strand === mapFilter;
+  });
+
+  // Draw edges
+  STATE.claims.forEach(function(c) {
+    if (!c.leads) return;
+    c.leads.forEach(function(tid) {
+      var target = STATE.claims.find(function(x){return x.id===tid;});
+      if (!target) return;
+      var srcVis = mapFilter==='all'||c.strand===mapFilter;
+      var tgtVis = mapFilter==='all'||target.strand===mapFilter;
+      if (!srcVis || !tgtVis) return;
+      var x1=c.x+70, y1=c.y, x2=target.x+70, y2=target.y;
+      var mx=(x1+x2)/2, my=(y1+y2)/2-30;
+      var path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M'+x1+','+y1+' Q'+mx+','+my+' '+x2+','+y2);
+      path.setAttribute('class','edge-path');
+      path.setAttribute('stroke', claimColor(c));
+      path.setAttribute('marker-end','url(#arrowhead)');
+      edgesLayer.appendChild(path);
+    });
+  });
+
+  // Draw nodes
+  visible.forEach(function(c) {
+    var g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','claim-node');
+    g.setAttribute('transform','translate('+c.x+','+c.y+')');
+    g.setAttribute('data-id',c.id);
+
+    var col = claimColor(c);
+    var confCol = CONF_COLOR[c.conf] || '#8899aa';
+    var isSelected = c.id === selectedClaimId;
+    var isYours = c.conf === 'yours';
+
+    // Outer ring (selected)
+    var ring = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    ring.setAttribute('x','-3'); ring.setAttribute('y','-3');
+    ring.setAttribute('width','146'); ring.setAttribute('height','50');
+    ring.setAttribute('rx','9');
+    ring.setAttribute('fill','none');
+    ring.setAttribute('stroke', isSelected ? col : 'transparent');
+    ring.setAttribute('stroke-width','2');
+    ring.setAttribute('class','node-ring');
+    ring.style.opacity = isSelected ? '1' : '0';
+    g.appendChild(ring);
+
+    // Main rect
+    var rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('width','140'); rect.setAttribute('height','44');
+    rect.setAttribute('rx','7');
+    rect.setAttribute('fill', isYours ? 'rgba(167,139,250,0.12)' : 'rgba(28,35,48,0.95)');
+    rect.setAttribute('stroke', isSelected ? col : (isYours ? '#7f77dd' : 'rgba(255,255,255,0.1)'));
+    rect.setAttribute('stroke-width', isSelected ? '1.5' : '0.8');
+    g.appendChild(rect);
+
+    // Strand indicator bar
+    var bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bar.setAttribute('x','0'); bar.setAttribute('y','0');
+    bar.setAttribute('width','4'); bar.setAttribute('height','44');
+    bar.setAttribute('rx','3');
+    bar.setAttribute('fill', col);
+    bar.setAttribute('opacity','0.8');
+    g.appendChild(bar);
+
+    // Confidence dot
+    var dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx','120'); dot.setAttribute('cy','12');
+    dot.setAttribute('r','4');
+    dot.setAttribute('fill', confCol);
+    g.appendChild(dot);
+
+    // Title text (truncated)
+    var words = c.title.split(' ');
+    var line1='', line2='', line3='';
+    var wcount=0;
+    for(var i=0;i<words.length;i++){
+      var test=line1+(line1?' ':'')+words[i];
+      if(test.length<=20){line1=test;}
+      else{
+        var test2=line2+(line2?' ':'')+words[i];
+        if(test2.length<=20){line2=test2;}
+        else{line3='…';break;}
+      }
+    }
+
+    var text1 = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text1.setAttribute('x','12'); text1.setAttribute('y','16');
+    text1.setAttribute('fill','#e2e8f0'); text1.setAttribute('font-size','10');
+    text1.setAttribute('font-family',"'DM Sans', sans-serif");
+    text1.textContent = line1;
+    g.appendChild(text1);
+
+    if (line2) {
+      var text2 = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text2.setAttribute('x','12'); text2.setAttribute('y','28');
+      text2.setAttribute('fill','#8899aa'); text2.setAttribute('font-size','10');
+      text2.setAttribute('font-family',"'DM Sans', sans-serif");
+      text2.textContent = line2 + (line3 ? ' …' : '');
+      g.appendChild(text2);
+    }
+
+    // Yours star
+    if (isYours) {
+      var star = document.createElementNS('http://www.w3.org/2000/svg','text');
+      star.setAttribute('x','128'); star.setAttribute('y','36');
+      star.setAttribute('fill','#f59e0b'); star.setAttribute('font-size','9');
+      star.setAttribute('font-family',"'DM Mono', monospace");
+      star.textContent = '★';
+      g.appendChild(star);
+    }
+
+    // Interactions
+    g.addEventListener('click', function(e){ e.stopPropagation(); selectClaim(c.id); });
+    g.addEventListener('contextmenu', function(e){ e.preventDefault(); e.stopPropagation(); showCtxMenu(e, c.id); });
+
+    // Drag
+    var dragging=false, dragSX=0, dragSY=0, origX=0, origY=0, moved=false;
+    g.addEventListener('mousedown', function(e){
+      if(e.button!==0) return;
+      dragging=true; moved=false;
+      dragSX=e.clientX; dragSY=e.clientY;
+      origX=c.x; origY=c.y;
+      e.stopPropagation();
+    });
+    window.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      var dx=e.clientX-dragSX, dy=e.clientY-dragSY;
+      if(Math.abs(dx)>3||Math.abs(dy)>3) moved=true;
+      if(moved){
+        c.x = Math.max(0, origX + dx/STATE.mapTransform.scale);
+        c.y = Math.max(0, origY + dy/STATE.mapTransform.scale);
+        g.setAttribute('transform','translate('+c.x+','+c.y+')');
+        renderEdges();
+      }
+    });
+    window.addEventListener('mouseup', function(){
+      if(dragging && moved){ save(); }
+      dragging=false;
+    });
+
+    nodesLayer.appendChild(g);
+  });
+
+  applyMapTransform();
+}
+
+function renderEdges() {
+  var edgesLayer = document.getElementById('edges-layer');
+  edgesLayer.innerHTML = '';
+  STATE.claims.forEach(function(c) {
+    if (!c.leads) return;
+    c.leads.forEach(function(tid) {
+      var target = STATE.claims.find(function(x){return x.id===tid;});
+      if (!target) return;
+      if (mapFilter!=='all' && c.strand!==mapFilter && target.strand!==mapFilter) return;
+      var x1=c.x+70,y1=c.y+22,x2=target.x+70,y2=target.y+22;
+      var mx=(x1+x2)/2,my=(y1+y2)/2-40;
+      var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M'+x1+','+y1+' Q'+mx+','+my+' '+x2+','+y2);
+      path.setAttribute('class','edge-path');
+      path.setAttribute('stroke',claimColor(c));
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke-width','1.5');
+      path.setAttribute('opacity','0.3');
+      path.setAttribute('marker-end','url(#arrowhead)');
+      edgesLayer.appendChild(path);
+    });
+  });
+}
+
+function applyMapTransform() {
+  var vp = document.getElementById('map-viewport');
+  var t = STATE.mapTransform;
+  vp.setAttribute('transform','translate('+t.x+','+t.y+') scale('+t.scale+')');
+}
+
+// ─── MAP PAN/ZOOM ─────────────────────────────────────────────────────────────
+var panning=false, panSX=0, panSY=0, panOrigX=0, panOrigY=0;
+var mapCanvas = null;
+function initMapInteraction() {
+  mapCanvas = document.getElementById('map-canvas');
+  mapCanvas.addEventListener('mousedown', function(e){
+    if(e.target===mapCanvas||e.target===document.getElementById('map-viewport')||e.target===document.getElementById('edges-layer')){
+      panning=true; panSX=e.clientX; panSY=e.clientY;
+      panOrigX=STATE.mapTransform.x; panOrigY=STATE.mapTransform.y;
+      mapCanvas.classList.add('grabbing');
+    }
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!panning) return;
+    STATE.mapTransform.x=panOrigX+(e.clientX-panSX);
+    STATE.mapTransform.y=panOrigY+(e.clientY-panSY);
+    applyMapTransform();
+  });
+  window.addEventListener('mouseup', function(){ panning=false; mapCanvas.classList.remove('grabbing'); });
+  mapCanvas.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var factor=e.deltaY<0?1.1:0.91;
+    var rect=mapCanvas.getBoundingClientRect();
+    var mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    STATE.mapTransform.x=mx+factor*(STATE.mapTransform.x-mx);
+    STATE.mapTransform.y=my+factor*(STATE.mapTransform.y-my);
+    STATE.mapTransform.scale*=factor;
+    applyMapTransform();
+  }, {passive:false});
+  mapCanvas.addEventListener('click', function(e){
+    if(e.target===mapCanvas||e.target===document.getElementById('edges-layer')){
+      selectedClaimId=null; renderMap(); renderRightPanel();
+    }
+  });
+}
+
+function zoomMap(f){
+  var rect=document.getElementById('map-canvas').getBoundingClientRect();
+  var mx=rect.width/2,my=rect.height/2;
+  STATE.mapTransform.x=mx+f*(STATE.mapTransform.x-mx);
+  STATE.mapTransform.y=my+f*(STATE.mapTransform.y-my);
+  STATE.mapTransform.scale*=f;
+  applyMapTransform();
+}
+
+function fitMap(){
+  if(!STATE.claims.length) return;
+  var xs=STATE.claims.map(function(c){return c.x;}),ys=STATE.claims.map(function(c){return c.y;});
+  var minX=Math.min.apply(null,xs),maxX=Math.max.apply(null,xs)+140;
+  var minY=Math.min.apply(null,ys),maxY=Math.max.apply(null,ys)+44;
+  var rect=document.getElementById('map-canvas').getBoundingClientRect();
+  var scaleX=rect.width/(maxX-minX+80),scaleY=rect.height/(maxY-minY+80);
+  var sc=Math.min(scaleX,scaleY,1.5);
+  STATE.mapTransform.scale=sc;
+  STATE.mapTransform.x=(rect.width-(maxX+minX)*sc)/2;
+  STATE.mapTransform.y=(rect.height-(maxY+minY)*sc)/2;
+  applyMapTransform();
+}
+
+function filterMap(f){
+  mapFilter=f;
+  document.querySelectorAll('.mf-btn').forEach(function(b){ b.classList.toggle('on',b.dataset.f===f); });
+  renderMap();
+}
+
+// ─── CLAIM SELECTION ──────────────────────────────────────────────────────────
+function selectClaim(id) {
+  selectedClaimId=id;
+  rightTab='claim';
+  document.querySelectorAll('.rt-tab').forEach(function(t){ t.classList.remove('on'); });
+  document.getElementById('rt-claim').classList.add('on');
+  renderMap();
+  renderRightPanel();
+}
+
+// ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
+function switchRightTab(tab) {
+  rightTab=tab;
+  document.querySelectorAll('.rt-tab').forEach(function(t){ t.classList.remove('on'); });
+  document.getElementById('rt-'+tab).classList.add('on');
+  renderRightPanel();
+}
+
+function renderRightPanel() {
+  var body=document.getElementById('right-body');
+  if(rightTab==='claim') renderClaimDetail(body);
+  else if(rightTab==='projects') renderProjects(body);
+  else if(rightTab==='notes') renderNotes(body);
+}
+
+function renderClaimDetail(body) {
+  if(!selectedClaimId){ body.innerHTML='<div class="empty-state">click a claim<br>on the map<br>to explore it</div>'; return; }
+  var c=STATE.claims.find(function(x){return x.id===selectedClaimId;});
+  if(!c){ body.innerHTML=''; return; }
+  var col=claimColor(c);
+  var strandLabels={jam:'jamming',col:'migration',yap:'YAP/packing',nuc:'nematic'};
+  var strandCols={jam:'var(--strand-jam)',col:'var(--strand-col)',yap:'var(--strand-yap)',nuc:'var(--strand-nuc)'};
+
+  var linkedTo=(c.leads||[]).map(function(lid){
+    var t=STATE.claims.find(function(x){return x.id===lid;});
+    return t?'<span class="linked-chip" onclick="selectClaim(\''+lid+'\')">→ '+t.title.slice(0,30)+'…</span>':'';
+  }).join('');
+  var linkedFrom=STATE.claims.filter(function(x){return (x.leads||[]).includes(c.id);}).map(function(x){
+    return '<span class="linked-chip" onclick="selectClaim(\''+x.id+'\')">← '+x.title.slice(0,30)+'…</span>';
+  }).join('');
+  var confs=['established','likely','contested','speculation','yours'];
+  var confOpts=confs.map(function(cv){
+    return '<span class="conf-opt'+(c.conf===cv?' selected':'')+'" data-c="'+cv+'" onclick="setConf(\''+c.id+'\',\''+cv+'\')">'+cv+'</span>';
+  }).join('');
+  var noteLinks=STATE.notes.filter(function(n){return n.linkedClaim===c.id;});
+  var noteSummary=noteLinks.length?'<div class="cd-section"><div class="cd-sec-label">notes ('+noteLinks.length+')</div>'+noteLinks.slice(0,2).map(function(n){return '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;border-left:2px solid var(--border2);padding-left:8px;line-height:1.5">'+n.text.slice(0,100)+(n.text.length>100?'…':'')+'</div>';}).join('')+'</div>':'';
+
+  body.innerHTML='<div class="claim-detail">'
+    +'<div class="cd-title">'+c.title+'</div>'
+    +'<div class="cd-conf"><div class="cd-conf-dot" style="background:'+CONF_COLOR[c.conf]+'"></div><div class="conf-selector">'+confOpts+'</div></div>'
+    +'<div class="cd-section"><div class="cd-sec-label">mechanism</div><div class="cd-sec-val">'+c.mechanism+'</div></div>'
+    +'<div class="cd-section"><div class="cd-sec-label">supporting</div><div class="cd-sec-val for">'+c.forPapers+'</div></div>'
+    +'<div class="cd-section"><div class="cd-sec-label">against</div><div class="cd-sec-val against">'+c.againstPapers+'</div></div>'
+    +'<div class="cd-section"><div class="cd-sec-label">open question</div><div class="cd-sec-val open">'+c.open+'</div></div>'
+    +(linkedTo||linkedFrom?'<div class="cd-section"><div class="cd-sec-label">connections</div><div class="linked-chips">'+linkedTo+linkedFrom+'</div></div>':'')
+    +noteSummary
+    +'<div class="action-row">'
+    +'<button class="action-btn primary" onclick="openEditModal(\''+c.id+'\')">edit</button>'
+    +'<button class="action-btn" onclick="addNoteForClaim(\''+c.id+'\')">add note</button>'
+    +'<button class="action-btn" onclick="askClaudeAbout(\''+c.id+'\')">ask Claude ↗</button>'
+    +'</div>'
+    +'</div>';
+}
+
+function setConf(id, conf) {
+  var c=STATE.claims.find(function(x){return x.id===id;});
+  if(c){ c.conf=conf; save(); renderMap(); renderRightPanel(); toast('confidence updated → '+conf); }
+}
+
+function renderProjects(body) {
+  var html='<button class="new-note-btn" onclick="openNewProjectModal()">+ new project</button>';
+  if(!STATE.projects.length){ html+='<div class="empty-state">no projects yet</div>'; body.innerHTML=html; return; }
+  STATE.projects.forEach(function(p){
+    var linkedClaimNames=(p.linkedClaims||[]).map(function(cid){
+      var cl=STATE.claims.find(function(x){return x.id===cid;});
+      return cl?'<span onclick="selectClaim(\''+cid+'\')" style="cursor:pointer;color:var(--purple)">'+cl.title.slice(0,35)+'…</span>':'';
+    }).join(', ');
+    html+='<div class="proj-card'+(p.status==='active'?' active-proj':'') +'">'
+      +'<div class="proj-header"><div class="proj-dot" style="background:'+(p.status==='active'?'var(--amber)':'var(--text3)')+'"></div>'
+      +'<div class="proj-name">'+p.name+'</div>'
+      +'<span class="proj-status">'+p.status+'</span></div>'
+      +(p.hypothesis?'<div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-style:italic">'+p.hypothesis+'</div>':'')
+      +(linkedClaimNames?'<div class="proj-linked">claims: '+linkedClaimNames+'</div>':'')
+      +'<textarea class="proj-notes" placeholder="notes, next steps, observations…" onblur="saveProjectNote(\''+p.id+'\',this.value)">'+escHtml(p.notes||'')+'</textarea>'
+      +'</div>';
+  });
+  body.innerHTML=html;
+}
+
+function saveProjectNote(id, val) {
+  var p=STATE.projects.find(function(x){return x.id===id;});
+  if(p){ p.notes=val; save(); }
+}
+
+function renderNotes(body) {
+  var html='<button class="new-note-btn" onclick="addNewNote()">+ new lab note</button>';
+  var sorted=STATE.notes.slice().sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
+  if(!sorted.length){ html+='<div class="empty-state">no notes yet</div>'; body.innerHTML=html; return; }
+  sorted.forEach(function(n){
+    var cl=n.linkedClaim?STATE.claims.find(function(x){return x.id===n.linkedClaim;}):null;
+    var d=new Date(n.date);
+    var dateStr=d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    html+='<div class="note-card">'
+      +'<div class="note-meta">'
+      +'<span class="note-date">'+dateStr+'</span>'
+      +(n.tag?'<span class="note-tag">'+n.tag+'</span>':'')
+      +(cl?'<span class="note-tag" style="color:var(--purple);border-color:rgba(167,139,250,0.3);cursor:pointer" onclick="selectClaim(\''+cl.id+'\')">'+cl.title.slice(0,25)+'…</span>':'')
+      +'</div>'
+      +'<textarea class="note-area" placeholder="write here…" onblur="saveNote(\''+n.id+'\',this.value)">'+escHtml(n.text||'')+'</textarea>'
+      +'</div>';
+  });
+  body.innerHTML=html;
+}
+
+function saveNote(id, val) {
+  var n=STATE.notes.find(function(x){return x.id===id;});
+  if(n){ n.text=val; save(); }
+}
+
+function addNoteForClaim(cid) {
+  var n={id:'note_'+Date.now(),linkedClaim:cid,text:'',date:new Date().toISOString(),tag:'note'};
+  STATE.notes.unshift(n);
+  save();
+  switchRightTab('notes');
+  toast('note added');
+}
+
+function addNewNote() {
+  var n={id:'note_'+Date.now(),linkedClaim:selectedClaimId||null,text:'',date:new Date().toISOString(),tag:'note'};
+  STATE.notes.unshift(n);
+  save();
+  renderRightPanel();
+}
+
+// ─── FEED PANEL ───────────────────────────────────────────────────────────────
+function renderTopicPills() {
+  var el=document.getElementById('topic-pills');
+  el.innerHTML=STATE.topics.map(function(t,i){
+    return '<span class="topic-pill'+(t.on?' on':'')+'" onclick="toggleTopic('+i+')">'+t.l+'</span>';
+  }).join('');
+}
+
+function toggleTopic(i){ STATE.topics[i].on=!STATE.topics[i].on; save(); renderTopicPills(); }
+
+async function fetchPapers() {
+  var btn=document.getElementById('fetch-btn');
+  btn.disabled=true; btn.textContent='fetching…';
+  document.getElementById('feed-list').innerHTML='<div class="empty-state">searching pubmed<br>+ biorxiv…</div>';
+  var active=STATE.topics.filter(function(t){return t.on;});
+  var all=[];
+  for(var i=0;i<Math.min(active.length,4);i++){
+    try{var pm=await fetchPM(active[i]);all=all.concat(pm);}catch(e){}
+    try{var bx=await fetchBX(active[i]);all=all.concat(bx);}catch(e){}
+  }
+  var seen=new Set();
+  var fresh=all.filter(function(p){if(seen.has(p.id))return false;seen.add(p.id);return true;}).slice(0,20);
+  // merge with saved papers (keep saved, add new)
+  fresh.forEach(function(p){
+    if(!STATE.papers.find(function(x){return x.id===p.id;})) STATE.papers.push(p);
+  });
+  save();
+  renderFeed();
+  btn.disabled=false; btn.textContent='⟳ fetch today';
+  toast(fresh.length+' papers loaded');
+}
+
+async function fetchPM(topic){
+  var now=new Date(),ago=new Date(now-14*864e5);
+  var fmt=function(d){return d.toISOString().slice(0,10).replace(/-/g,'/');};
+  var q=encodeURIComponent(topic.q+'[Title/Abstract]');
+  var url='https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term='+q+'&datetype=pdat&mindate='+fmt(ago)+'&maxdate='+fmt(now)+'&retmax=4&retmode=json';
+  var r=await fetch(url); var d=await r.json();
+  var ids=(d.esearchresult&&d.esearchresult.idlist)||[];
+  if(!ids.length)return[];
+  var url2='https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id='+ids.join(',')+'&retmode=json';
+  var r2=await fetch(url2); var d2=await r2.json(); var res=d2.result||{};
+  return ids.map(function(id){
+    var p=res[id]||{};
+    var auths=(p.authors||[]).slice(0,2).map(function(a){return a.name;}).join(', ');
+    if((p.authors||[]).length>2)auths+=' et al.';
+    return{id:'pm_'+id,source:'pubmed',topic:topic.l,title:p.title||'',authors:auths,journal:p.fulljournalname||'',date:p.pubdate||'',doi:(p.elocationid||'').replace('doi: ',''),abstract:'',url:'https://pubmed.ncbi.nlm.nih.gov/'+id+'/',assignedTo:null,assignedAs:null};
+  });
+}
+
+async function fetchBX(topic){
+  var now=new Date().toISOString().slice(0,10),ago=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  var r=await fetch('https://api.biorxiv.org/details/biorxiv/'+ago+'/'+now+'/0/json');
+  var d=await r.json(); var all=d.collection||[];
+  var qw=topic.q.toLowerCase().split(' ').filter(function(w){return w.length>3;});
+  return all.filter(function(p){
+    var txt=((p.title||'')+(p.abstract||'')).toLowerCase();
+    return qw.filter(function(w){return txt.includes(w);}).length>=2;
+  }).slice(0,3).map(function(p){
+    var auths=(p.authors||'').split(';').slice(0,2).join(', ');
+    if((p.authors||'').split(';').length>2)auths+=' et al.';
+    return{id:'bx_'+p.doi,source:'biorxiv',topic:topic.l,title:p.title||'',authors:auths,journal:'bioRxiv',date:p.date||'',doi:p.doi||'',abstract:(p.abstract||'').slice(0,300),url:'https://biorxiv.org/content/'+p.doi,assignedTo:null,assignedAs:null};
+  });
+}
+
+function renderFeed(){
+  var list=document.getElementById('feed-list');
+  if(!STATE.papers.length){list.innerHTML='<div class="empty-state">fetch papers from<br>pubmed + biorxiv<br>for active topics</div>';return;}
+  var html=STATE.papers.slice(0,30).map(function(p){
+    var assigned=p.assignedTo?STATE.claims.find(function(c){return c.id===p.assignedTo;}):null;
+    return '<div class="paper-card'+(p===selectedPaper?' selected':'')+'" id="feed-'+p.id+'">'
+      +'<div class="paper-source"><span class="src-badge src-'+(p.source==='pubmed'?'pm':'bx')+'">'+(p.source==='pubmed'?'PM':'bX')+'</span>'
+      +'<span style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+p.topic+'</span>'
+      +'<span class="paper-date">'+p.date.slice(0,7)+'</span></div>'
+      +'<div class="paper-title">'+p.title+'</div>'
+      +'<div class="paper-authors">'+p.authors+'</div>'
+      +(assigned?'<div style="font-size:10px;color:var(--purple);margin-bottom:4px;font-family:var(--mono)">→ '+assigned.title.slice(0,35)+'…</div>':'')
+      +'<div class="paper-actions">'
+      +'<span class="pa-btn assign" onclick="openAssignModal(\''+p.id+'\')">assign to claim</span>'
+      +'<span class="pa-btn" onclick="openLink(\''+p.url+'\')">open ↗</span>'
+      +'</div></div>';
+  }).join('');
+  list.innerHTML=html;
+}
+var selectedPaper=null;
+
+// ─── ASSIGN PAPER TO CLAIM ────────────────────────────────────────────────────
+function openAssignModal(pid){
+  assignPaper=STATE.papers.find(function(p){return p.id===pid;}); if(!assignPaper)return;
+  assignType='for';
+  var html='<h3>assign paper to claim</h3>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+assignPaper.title+'</div>'
+    +'<div class="assign-type">'
+    +'<button class="at-btn sel" data-t="for" onclick="setAssignType(\'for\',this)">supports</button>'
+    +'<button class="at-btn" data-t="against" onclick="setAssignType(\'against\',this)">contradicts</button>'
+    +'</div>'
+    +'<div id="claim-opts">'+renderClaimOptions()+'</div>'
+    +'<div class="modal-btns"><button class="modal-btn" onclick="closeModal()">cancel</button></div>';
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function setAssignType(t, btn){
+  assignType=t;
+  document.querySelectorAll('.at-btn').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
+  document.getElementById('claim-opts').innerHTML=renderClaimOptions();
+}
+
+function renderClaimOptions(){
+  return STATE.claims.map(function(c){
+    return '<div class="claim-option '+assignType+'" onclick="doAssign(\''+c.id+'\')"><div class="co-title">'+c.title.slice(0,70)+'…</div><div class="co-sub">'+c.strand+' · '+c.conf+'</div></div>';
+  }).join('');
+}
+
+function doAssign(cid){
+  if(!assignPaper)return;
+  var c=STATE.claims.find(function(x){return x.id===cid;});
+  if(!c)return;
+  assignPaper.assignedTo=cid; assignPaper.assignedAs=assignType;
+  var cite=assignPaper.authors.split(',')[0]+' '+assignPaper.date.slice(0,4)+' ('+assignPaper.source+')';
+  if(assignType==='for'){
+    c.forPapers=(c.forPapers?c.forPapers+'; ':'')+cite;
+  } else {
+    c.againstPapers=(c.againstPapers?c.againstPapers+'; ':'')+cite;
+  }
+  save(); closeModal(); renderFeed(); renderMap();
+  if(selectedClaimId===cid) renderRightPanel();
+  toast('paper assigned → '+c.title.slice(0,30)+'…');
+}
+
+// ─── MODALS ───────────────────────────────────────────────────────────────────
+function openNewClaimModal(){
+  var html='<h3>new claim</h3>'
+    +'<label>claim (one sentence)</label><textarea id="nc-title" rows="3" placeholder="e.g. Local packing fraction overrides substrate stiffness as the primary YAP determinant in collectives"></textarea>'
+    +'<label>strand</label><select id="nc-strand"><option value="jam">jamming</option><option value="col">collective migration</option><option value="yap">YAP/packing</option><option value="nuc">nematic</option></select>'
+    +'<label>confidence</label><select id="nc-conf"><option value="established">established</option><option value="likely">likely</option><option value="contested">contested</option><option value="speculation">speculation</option><option value="yours">yours (own work)</option></select>'
+    +'<label>mechanism</label><textarea id="nc-mech" rows="2" placeholder="how does this work?"></textarea>'
+    +'<label>supporting papers</label><input id="nc-for" type="text" placeholder="Author Year; Author Year…">'
+    +'<label>contradicting papers</label><input id="nc-against" type="text" placeholder="Author Year; Author Year…">'
+    +'<label>open question</label><input id="nc-open" type="text" placeholder="what would change this claim?">'
+    +'<div class="modal-btns"><button class="modal-btn" onclick="closeModal()">cancel</button><button class="modal-btn save" onclick="saveNewClaim()">save claim</button></div>';
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function saveNewClaim(){
+  var title=document.getElementById('nc-title').value.trim();
+  if(!title){toast('claim text required');return;}
+  var c={
+    id:'c_'+Date.now(), strand:document.getElementById('nc-strand').value,
+    conf:document.getElementById('nc-conf').value, title:title,
+    mechanism:document.getElementById('nc-mech').value,
+    forPapers:document.getElementById('nc-for').value,
+    againstPapers:document.getElementById('nc-against').value,
+    open:document.getElementById('nc-open').value,
+    leads:[], x:100+Math.random()*400, y:100+Math.random()*300
+  };
+  STATE.claims.push(c); save(); closeModal(); renderMap();
+  selectClaim(c.id); toast('claim added');
+}
+
+function openEditModal(id){
+  var c=STATE.claims.find(function(x){return x.id===id;}); if(!c)return;
+  var strands=['jam','col','yap','nuc'];
+  var confs=['established','likely','contested','speculation','yours'];
+  var strandOpts=strands.map(function(s){return '<option value="'+s+'"'+(c.strand===s?' selected':'')+'>'+s+'</option>';}).join('');
+  var confOpts=confs.map(function(cv){return '<option value="'+cv+'"'+(c.conf===cv?' selected':'')+'>'+cv+'</option>';}).join('');
+  var html='<h3>edit claim</h3>'
+    +'<label>claim</label><textarea id="ec-title" rows="3">'+escHtml(c.title)+'</textarea>'
+    +'<label>strand</label><select id="ec-strand">'+strandOpts+'</select>'
+    +'<label>confidence</label><select id="ec-conf">'+confOpts+'</select>'
+    +'<label>mechanism</label><textarea id="ec-mech" rows="2">'+escHtml(c.mechanism||'')+'</textarea>'
+    +'<label>supporting</label><textarea id="ec-for" rows="2">'+escHtml(c.forPapers||'')+'</textarea>'
+    +'<label>against</label><textarea id="ec-against" rows="2">'+escHtml(c.againstPapers||'')+'</textarea>'
+    +'<label>open question</label><input id="ec-open" type="text" value="'+escHtml(c.open||'')+'">'
+    +'<div class="modal-btns"><button class="modal-btn" onclick="closeModal()">cancel</button><button class="modal-btn save" onclick="saveEditClaim(\''+id+'\')">save</button></div>';
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function saveEditClaim(id){
+  var c=STATE.claims.find(function(x){return x.id===id;}); if(!c)return;
+  c.title=document.getElementById('ec-title').value.trim();
+  c.strand=document.getElementById('ec-strand').value;
+  c.conf=document.getElementById('ec-conf').value;
+  c.mechanism=document.getElementById('ec-mech').value;
+  c.forPapers=document.getElementById('ec-for').value;
+  c.againstPapers=document.getElementById('ec-against').value;
+  c.open=document.getElementById('ec-open').value;
+  save(); closeModal(); renderMap(); renderRightPanel(); toast('claim updated');
+}
+
+function openNewProjectModal(){
+  var claimOpts=STATE.claims.map(function(c){return '<option value="'+c.id+'">'+c.title.slice(0,60)+'…</option>';}).join('');
+  var html='<h3>new project</h3>'
+    +'<label>name</label><input id="np-name" type="text" placeholder="e.g. Packing fraction × YAP in 3D">'
+    +'<label>status</label><select id="np-status"><option value="planning">planning</option><option value="active">active</option><option value="paused">paused</option><option value="done">done</option></select>'
+    +'<label>hypothesis (a claim this tests)</label><input id="np-hyp" type="text" placeholder="one sentence hypothesis">'
+    +'<label>link to claim</label><select id="np-claim"><option value="">— none —</option>'+claimOpts+'</select>'
+    +'<label>initial notes</label><textarea id="np-notes" rows="3" placeholder="context, next steps…"></textarea>'
+    +'<div class="modal-btns"><button class="modal-btn" onclick="closeModal()">cancel</button><button class="modal-btn save" onclick="saveNewProject()">create</button></div>';
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function saveNewProject(){
+  var name=document.getElementById('np-name').value.trim();
+  if(!name){toast('name required');return;}
+  var cid=document.getElementById('np-claim').value;
+  var p={id:'p_'+Date.now(),name:name,status:document.getElementById('np-status').value,hypothesis:document.getElementById('np-hyp').value,linkedClaims:cid?[cid]:[],notes:document.getElementById('np-notes').value,created:new Date().toISOString()};
+  STATE.projects.push(p); save(); closeModal();
+  switchRightTab('projects'); toast('project created');
+}
+
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// ─── CONTEXT MENU ─────────────────────────────────────────────────────────────
+function showCtxMenu(e, id){
+  ctxTargetId=id;
+  var menu=document.getElementById('ctx-menu');
+  menu.style.display='block';
+  menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+}
+function hideCtxMenu(){ document.getElementById('ctx-menu').style.display='none'; ctxTargetId=null; }
+document.addEventListener('click',hideCtxMenu);
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){hideCtxMenu();closeModal();}});
+
+function ctxEdit(){ hideCtxMenu(); if(ctxTargetId) openEditModal(ctxTargetId); }
+function ctxNote(){ hideCtxMenu(); if(ctxTargetId){selectClaim(ctxTargetId);addNoteForClaim(ctxTargetId);} }
+function ctxDelete(){
+  hideCtxMenu(); if(!ctxTargetId)return;
+  var c=STATE.claims.find(function(x){return x.id===ctxTargetId;});
+  if(!c)return;
+  if(!confirm('delete "'+c.title.slice(0,50)+'…"?'))return;
+  STATE.claims=STATE.claims.filter(function(x){return x.id!==ctxTargetId;});
+  STATE.claims.forEach(function(x){x.leads=(x.leads||[]).filter(function(l){return l!==ctxTargetId;});});
+  if(selectedClaimId===ctxTargetId)selectedClaimId=null;
+  save(); renderMap(); renderRightPanel(); toast('claim deleted');
+}
+function ctxLink(){
+  hideCtxMenu();
+  if(!ctxTargetId)return;
+  var fromTitle=STATE.claims.find(function(x){return x.id===ctxTargetId;});
+  if(!fromTitle)return;
+  var opts=STATE.claims.filter(function(x){return x.id!==ctxTargetId;}).map(function(c){
+    return '<div class="claim-option" onclick="doLink(\''+ctxTargetId+'\',\''+c.id+'\')"><div class="co-title">'+c.title.slice(0,70)+'</div><div class="co-sub">'+c.strand+'</div></div>';
+  }).join('');
+  var html='<h3>link "'+fromTitle.title.slice(0,40)+'…" leads to:</h3>'+opts+'<div class="modal-btns"><button class="modal-btn" onclick="closeModal()">cancel</button></div>';
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function doLink(fromId,toId){
+  var c=STATE.claims.find(function(x){return x.id===fromId;}); if(!c)return;
+  if(!(c.leads||[]).includes(toId)){c.leads=c.leads||[];c.leads.push(toId);}
+  save(); closeModal(); renderMap(); toast('connection added');
+}
+function ctxClaude(){
+  hideCtxMenu();
+  var c=STATE.claims.find(function(x){return x.id===ctxTargetId;}); if(!c)return;
+  var q='Expand on this claim from my argument map, tell me what the literature says, flag contradictions, and suggest the most important missing papers: "'+c.title+'"';
+  try{window.parent.postMessage({type:'sendPrompt',text:q},'*');}catch(e){prompt('Copy and paste this into Claude:',q);}
+  toast('sending to Claude…');
+}
+function askClaudeAbout(id){
+  var c=STATE.claims.find(function(x){return x.id===id;}); if(!c)return;
+  var q='For this claim from my epithelial mechanics argument map: "'+c.title+'" — what does the recent literature say? Are there key papers I\'m missing? What is the strongest evidence for and against?';
+  try{window.parent.postMessage({type:'sendPrompt',text:q},'*');}catch(e){prompt('Copy and paste this into Claude:',q);}
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function openLink(url){ window.open(url,'_blank'); }
+function switchView(v){}
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2200);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+initState();
+renderTopicPills();
+renderFeed();
+initMapInteraction();
+renderMap();
+setTimeout(fitMap, 100);
+</script>
+</body>
+</html>
