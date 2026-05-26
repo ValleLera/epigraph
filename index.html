@@ -682,7 +682,7 @@ function renderClaimDetail(){
   var sL={jam:'jamming',col:'migration',yap:'YAP/packing',nuc:'nematic'};
   var sB={jam:'b-jam',col:'b-col',yap:'b-yap',nuc:'b-nuc'};
   var confs=['established','likely','contested','speculation','yours'];
-  var cOpts=confs.map(function(cv){return'<span class="copt'+(c.conf===cv?' sel':'')+'" data-c="'+cv+'" onclick="setConf(\''+c.id+'\',\''+cv+'\')">'+cv+'</span>';}).join('');
+  var cOpts=confs.map(function(cv){return'<span class="copt'+(c.conf===cv?' sel':'')+'" data-c="'+cv+'" data-cid="'+esc(c.id)+'" onclick="setConfEl(this)">'+cv+'</span>';}).join('');
   var lTo=(c.leads||[]).map(function(lid){var t=S.claims.find(function(x){return x.id===lid;});return t?'<span class="chip" onclick="selClaim(\''+lid+'\')">→ '+t.title.slice(0,28)+'…</span>':'';}).join('');
   var lFrom=S.claims.filter(function(x){return(x.leads||[]).includes(c.id);}).map(function(x){return'<span class="chip" onclick="selClaim(\''+x.id+'\')">← '+x.title.slice(0,28)+'…</span>';}).join('');
   var nc=S.notes.filter(function(n){return n.linkedClaim===c.id;}).length;
@@ -690,6 +690,10 @@ function renderClaimDetail(){
   // library papers linked to this claim
   var libLinked=(S.library||[]).filter(function(p){return(p.claims||[]).includes(c.id);});
   body.innerHTML='<div class="cd">'
+  var _cid=c.id;
+  body.querySelector('.cd-edit') && body.querySelector('.cd-edit').addEventListener('click',function(){openEdit(_cid);});
+  body.querySelector('.cd-note') && body.querySelector('.cd-note').addEventListener('click',function(){addNote(_cid);});
+  body.querySelector('.cd-claude') && body.querySelector('.cd-claude').addEventListener('click',function(){askClaude(_cid);});
     +'<div class="cdtitle">'+esc(c.title)+'</div>'
     +'<div class="cdbadges"><span class="badge '+sB[c.strand]+'">'+sL[c.strand]+'</span>'+(c.conf==='yours'?'<span class="badge b-yours">your work</span>':'')+'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+pc+'p · '+nc+' notes'+(libLinked.length?' · '+libLinked.length+' lib':'')+'</span></div>'
     +'<div class="csel">'+cOpts+'</div>'
@@ -705,6 +709,7 @@ function renderClaimDetail(){
 }
 function selClaim(id){selId=id;rtab('claim');renderMap();renderRight();}
 function setConf(id,conf){var c=S.claims.find(function(x){return x.id===id;});if(c){c.conf=conf;save();renderMap();renderRight();toast('→ '+conf);}}
+function setConfEl(el){var id=el.dataset.cid,conf=el.dataset.c;setConf(id,conf);}
 
 // ── LIBRARY ──
 function renderLibrary(){
@@ -760,6 +765,9 @@ function renderLibrary(){
   }).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px;">'+(lib.length?'no matches':'library empty — import .bib or add manually')+'</td></tr>';
 
   body.innerHTML='<div id="lib-controls">'
+  body.querySelectorAll('.lib-row').forEach(function(row){
+    row.addEventListener('click',function(){selectLibPaper(row.dataset.pid);});
+  });
     +'<input id="lib-search" type="text" placeholder="search title, author, journal…" value="'+esc(libSearch)+'" oninput="libSearchUpdate(this.value)">'
     +'<button class="lbtn" onclick="openImport()">⊕ import .bib</button>'
     +'<button class="lbtn" onclick="openAddPaper()">+ add</button>'
@@ -770,6 +778,7 @@ function renderLibrary(){
 }
 
 function libSearchUpdate(v){libSearch=v;renderLibrary();}
+function setTagEl(el){setTagFilter(el.dataset.tag||'');}
 function setLibSort(k){if(libSort===k)libSortDir*=-1;else{libSort=k;libSortDir=-1;}renderLibrary();}
 function setTagFilter(t){libTagFilter=t;renderLibrary();}
 
@@ -916,14 +925,28 @@ function renderNotes(){
   var html='<button class="newbtn" onclick="newNote()">+ new lab note</button>';
   var sorted=S.notes.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
   if(!sorted.length){html+='<div class="empty">no notes yet</div>';body.innerHTML=html;return;}
-  sorted.forEach(function(n){
+  sorted.forEach(function(n,ni){
     var cl=n.linkedClaim?S.claims.find(function(x){return x.id===n.linkedClaim;}):null;
     var ds=new Date(n.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-    html+='<div class="note"><div class="notemeta"><span class="notedate">'+ds+'</span>'+(n.tag?'<span class="notetag">'+n.tag+'</span>':'')+(cl?'<span class="noteclaim" onclick="selClaim(\''+cl.id+'\')">'+cl.title.slice(0,22)+'…</span>':'')+'</div>'
-      +'<textarea class="notearea" placeholder="write here…" onblur="saveNote(\''+n.id+'\',this.value)">'+esc(n.text||'')+'</textarea></div>';
+    html+='<div class="note" data-nid="'+esc(n.id)+'">';
+    html+='<div class="notemeta">';
+    html+='<span class="notedate">'+ds+'</span>';
+    if(n.tag)html+='<span class="notetag">'+esc(n.tag)+'</span>';
+    if(cl)html+='<span class="noteclaim note-claim-link" data-cid="'+esc(cl.id)+'">'+esc(cl.title.slice(0,22))+'...</span>';
+    html+='</div>';
+    html+='<textarea class="notearea" placeholder="write here..." data-nid="'+esc(n.id)+'">'+esc(n.text||'')+'</textarea>';
+    html+='</div>';
   });
   body.innerHTML=html;
+  // event delegation for notes
+  body.querySelectorAll('.note-claim-link').forEach(function(el){
+    el.addEventListener('click',function(){selClaim(el.dataset.cid);});
+  });
+  body.querySelectorAll('.notearea').forEach(function(el){
+    el.addEventListener('blur',function(){saveNote(el.dataset.nid,el.value);});
+  });
 }
+
 function saveNote(id,val){var n=S.notes.find(function(x){return x.id===id;});if(n){n.text=val;save();}}
 function addNote(cid){var n={id:'n_'+Date.now(),linkedClaim:cid,text:'',date:new Date().toISOString(),tag:'note'};S.notes.unshift(n);save();rtab('notes');renderRight();toast('note added');}
 function newNote(){var n={id:'n_'+Date.now(),linkedClaim:selId||null,text:'',date:new Date().toISOString(),tag:'note'};S.notes.unshift(n);save();renderRight();}
@@ -946,9 +969,20 @@ function renderOverview(){
   });
   html+='</div>';
   var weak=S.claims.filter(function(c){return c.conf==='contested'||c.conf==='speculation';});
-  if(weak.length)html+='<div class="sec"><div class="slbl">needs attention</div>'+weak.map(function(c){return'<div class="ovclaim" onclick="selClaim(\''+c.id+'\')"><div class="ovcdot" style="background:var(--c-con)"></div>'+c.title.slice(0,48)+'…</div>';}).join('')+'</div>';
-  if((S.library||[]).length)html+='<div class="sec" style="margin-top:10px"><div class="slbl">library ('+S.library.length+')</div><div style="font-size:11px;color:var(--text3);line-height:1.8">'+S.library.slice(0,5).map(function(p){return esc(p.authors_short)+' '+esc(p.year);}).join('<br>')+'</div></div>';
+  var wkHtml='';
+  weak.forEach(function(c){
+    wkHtml+='<div class="ovclaim" data-cid="'+esc(c.id)+'"><div class="ovcdot" style="background:var(--c-con)"></div>'+esc(c.title.slice(0,48))+'...</div>';
+  });
+  if(weak.length)html+='<div class="sec"><div class="slbl">needs attention ('+weak.length+')</div>'+wkHtml+'</div>';
+  var libHtml='';
+  if((S.library||[]).length){
+    S.library.slice(0,5).forEach(function(p){libHtml+=esc(p.authors_short||'')+' '+esc(p.year||'')+'<br>';});
+    html+='<div class="sec" style="margin-top:10px"><div class="slbl">library ('+S.library.length+')</div><div style="font-size:11px;color:var(--text3);line-height:1.8">'+libHtml+'</div></div>';
+  }
   body.innerHTML=html;
+  body.querySelectorAll('.ovclaim').forEach(function(el){
+    if(el.dataset.cid)el.addEventListener('click',function(){selClaim(el.dataset.cid);});
+  });
 }
 
 // ── SETTINGS ──
@@ -1005,14 +1039,18 @@ function toggleTopicsEdit(){
 }
 
 function renderTopicEditList(){
-  document.getElementById('topic-edit-list').innerHTML=S.topics.map(function(t,i){
-    return '<div class="topic-edit-row">'
-      +'<input value="'+esc(t.l)+'" onblur="updateTopic('+i+','l',this.value)" placeholder="label" style="width:70px;flex:none">'
-      +'<input value="'+esc(t.q)+'" onblur="updateTopic('+i+','q',this.value)" placeholder="search query">'
-      +'<button class="rm" onclick="removeTopic('+i+')" title="remove">✕</button>'
-      +'</div>';
-  }).join('');
+  var html="";
+  S.topics.forEach(function(t,i){
+    html+='<div class="topic-edit-row">';
+    html+='<input value="'+esc(t.l)+'" data-i="'+i+'" data-k="l" onblur="updateTopicEl(this)" placeholder="label" style="width:70px;flex:none">';
+    html+='<input value="'+esc(t.q)+'" data-i="'+i+'" data-k="q" onblur="updateTopicEl(this)" placeholder="search query">';
+    html+='<button class="rm" data-i="'+i+'" onclick="removeTopicEl(this)" title="remove">✕</button>';
+    html+='</div>';
+  });
+  document.getElementById("topic-edit-list").innerHTML=html;
 }
+function updateTopicEl(el){var i=parseInt(el.dataset.i),k=el.dataset.k;if(S.topics[i])S.topics[i][k]=el.value;save();renderPills();}
+function removeTopicEl(el){var i=parseInt(el.dataset.i);S.topics.splice(i,1);save();renderPills();renderTopicEditList();}
 
 function updateTopic(i,key,val){S.topics[i][key]=val;save();renderPills();}
 function removeTopic(i){S.topics.splice(i,1);save();renderPills();renderTopicEditList();}
@@ -1135,53 +1173,71 @@ function renderFeed(){
   var papers=S.inbox.filter(function(p){
     return feedTab==='dismissed'?p.dismissed:!p.dismissed;
   });
-  try{updateFeedCounts();}catch(e){}
+  updateFeedCounts();
   if(!papers.length){
-    list.innerHTML='<div class="empty">'+(feedTab==='dismissed'?'no dismissed papers':'inbox empty — fetch to review new papers<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from claims</span>')+'</div>';
+    list.innerHTML='<div class="empty">'+(feedTab==='dismissed'?'no dismissed papers':'inbox empty — fetch to review')+'</div>';
     return;
   }
-  list.innerHTML=papers.map(function(p){
+  var html='';
+  papers.forEach(function(p){
     var srcCls=p.source==='pubmed'?'src-pm':'src-bx';
     var srcLabel=p.source==='pubmed'?'PM':'bX';
-    var teaser=p.abstract?(p.abstract.slice(0,90)+(p.abstract.length>90?'…':'')):'no abstract available';
+    var teaser=p.abstract?(p.abstract.slice(0,90)+(p.abstract.length>90?'...':'')):' no abstract available';
     var asgnd=p.assignedTo?S.claims.find(function(c){return c.id===p.assignedTo;}):null;
     var inLib=p.addedToLib||p.inLibrary;
-    return '<div class="inbox-card" id="ic-'+p.id+'">'
-      +'<div class="ic-top">'
-      +'<span class="ic-src '+srcCls+'">'+srcLabel+'</span>'
-      +'<span class="ic-title" onclick="toggleAbstract(''+p.id+'')">'+esc(p.title)+'</span>'
-      +'</div>'
-      +'<div class="ic-meta">'
-      +'<span class="ic-auth">'+esc(p.authors)+(p.last_author&&!p.authors.includes(p.last_author.split(' ')[0])?'<span style="color:var(--amber)"> · '+esc(p.last_author)+'</span>':'')+'</span>'
-      +'<span class="ic-topic">'+esc(p.topic)+'</span>'
-      +'<span class="ic-date">'+p.date.slice(0,7)+'</span>'
-      +'</div>'
-      +'<div class="ic-teaser" onclick="toggleAbstract(''+p.id+'')">'+esc(teaser)+'</div>'
-      +'<div class="ic-abstract" id="abs-'+p.id+'">'+esc(p.abstract||'Abstract not available for PubMed entries — click DOI to read.')+'</div>'
-      +(asgnd?'<div style="font-size:9px;color:var(--purple);font-family:var(--mono);margin-bottom:5px;">→ '+esc(asgnd.title.slice(0,40))+'…</div>':'')
-      +(inLib?'<div class="ic-added">✓ in library</div>':'')
-      +'<div class="ic-actions">'
-      +(feedTab==='dismissed'
-        ?'<span class="ica" onclick="undismiss(''+p.id+'')">↩ restore</span>'
-        :(inLib
-          ?'<span class="ica" style="opacity:.4;cursor:default">✓ in library</span>'
-          :'<span class="ica add" onclick="addInboxToLib(''+p.id+'')">+ library</span>'
-         )
-       )
-      +(feedTab!=='dismissed'?'<span class="ica asgn" onclick="openAssignInbox(''+p.id+'')">assign →</span>':'')
-      +'<span class="ica" onclick="window.open(''+p.url+'','_blank')">open ↗</span>'
-      +(feedTab!=='dismissed'?'<span class="ica dis" onclick="dismiss(''+p.id+'')">dismiss</span>':'')
-      +'</div>'
-      +'</div>';
-  }).join('');
+    var lastA='';
+    if(p.last_author)lastA='<span style="color:#f59e0b"> '+esc(p.last_author)+'</span>';
+    html+='<div class="inbox-card" data-pid="'+esc(p.id)+'">';
+    html+='<div class="ic-top">';
+    html+='<span class="ic-src '+srcCls+'">'+srcLabel+'</span>';
+    html+='<span class="ic-title ic-toggle">'+esc(p.title)+'</span>';
+    html+='</div>';
+    html+='<div class="ic-meta">';
+    html+='<span class="ic-auth">'+esc(p.authors||'')+lastA+'</span>';
+    html+='<span class="ic-topic">'+esc(p.topic||'')+'</span>';
+    html+='<span class="ic-date">'+esc(p.date.slice(0,7))+'</span>';
+    html+='</div>';
+    html+='<div class="ic-teaser ic-toggle">'+esc(teaser)+'</div>';
+    html+='<div class="ic-abstract">'+esc(p.abstract||'Abstract not available.')+'</div>';
+    if(asgnd)html+='<div style="font-size:9px;color:var(--purple);font-family:var(--mono);margin-bottom:5px;">→ '+esc(asgnd.title.slice(0,40))+'...</div>';
+    if(inLib)html+='<div class="ic-added">✓ in library</div>';
+    html+='<div class="ic-actions">';
+    if(feedTab==='dismissed'){
+      html+='<span class="ica ic-undismiss">restore</span>';
+    } else {
+      if(inLib){
+        html+='<span class="ica" style="opacity:.4">in library</span>';
+      } else {
+        html+='<span class="ica add ic-addlib">+ library</span>';
+      }
+      html+='<span class="ica asgn ic-assign">assign</span>';
+    }
+    html+='<span class="ica ic-open">open ↗</span>';
+    if(feedTab!=='dismissed')html+='<span class="ica dis ic-dismiss">dismiss</span>';
+    html+='</div></div>';
+  });
+  list.innerHTML=html;
+  // attach events via delegation
+  list.onclick=function(e){
+    var card=e.target.closest('.inbox-card');
+    if(!card)return;
+    var pid=card.dataset.pid;
+    if(e.target.classList.contains('ic-toggle')){toggleAbstract(card);}
+    else if(e.target.classList.contains('ic-addlib')){addInboxToLib(pid);}
+    else if(e.target.classList.contains('ic-assign')){openAssignInbox(pid);}
+    else if(e.target.classList.contains('ic-dismiss')){dismiss(pid);}
+    else if(e.target.classList.contains('ic-undismiss')){undismiss(pid);}
+    else if(e.target.classList.contains('ic-open')){
+      var p=S.inbox.find(function(x){return x.id===pid;});
+      if(p)window.open(p.url,'_blank');
+    }
+  };
 }
 
-function toggleAbstract(id){
-  var card=document.getElementById('ic-'+id);
-  var abs=document.getElementById('abs-'+id);
-  if(!card||!abs)return;
+function toggleAbstract(card){
+  var abs=card.querySelector('.ic-abstract');
   card.classList.toggle('expanded');
-  abs.classList.toggle('open');
+  if(abs)abs.classList.toggle('open');
 }
 
 function dismiss(id){
@@ -1218,7 +1274,7 @@ function openAssignInbox(id){
   assignType='for';
   modal('<h3>assign to claim</h3>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+esc(assignPaper.title)+'</div>'
-    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt('for',this)">supports</button><button class="atbtn" data-t="against" onclick="setAt('against',this)">contradicts</button></div>'
+    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(this.dataset.t,this)">supports</button><button class="atbtn" data-t="against" onclick="setAt(this.dataset.t,this)">contradicts</button></div>'
     +'<div id="copts">'+renderCopts()+'</div>'
     +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>');
 }
@@ -1229,7 +1285,7 @@ function openAssign(pid){
   assignType='for';
   modal('<h3>assign to claim</h3>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+esc(assignPaper.title)+'</div>'
-    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(\'for\',this)">supports</button><button class="atbtn" data-t="against" onclick="setAt(\'against\',this)">contradicts</button></div>'
+    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(this.dataset.t,this)">supports</button><button class="atbtn" data-t="against" onclick="setAt(this.dataset.t,this)">contradicts</button></div>'
     +'<div id="copts">'+renderCopts()+'</div>'
     +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>');
 }
