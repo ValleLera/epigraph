@@ -821,7 +821,8 @@ function renderLibrary(){
       var tags=(p.tags||[]).map(function(t){return'<span class="lib-tag">'+esc(t)+'</span>';}).join('');
       var claimed=(p.claims||[]).length?'<span class="lib-claimed">'+(p.claims.length)+'✓</span>':'';
       html+='<tr class="lib-row" data-pid="'+esc(p.id)+'">';
-      html+='<td class="lib-year">'+esc(p.year||'?')+'</td>';
+      var statusColor={unread:'var(--text3)',reading:'var(--amber)',done:'var(--green)','key paper':'var(--purple)'}[p.readStatus||'unread']||'var(--text3)';
+      html+='<td class="lib-year"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:'+statusColor+';margin-right:4px;vertical-align:middle"></span>'+esc(p.year||'?')+'</td>';
       html+='<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>';
       html+='<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>';
       html+='<td class="lib-title-cell">'+esc(p.title.slice(0,55))+(p.title.length>55?'...':'')+' '+doi+'</td>';
@@ -859,28 +860,99 @@ function setTagFilter(t){libTagFilter=t;renderLibrary();}
 
 function selectLibPaper(id){
   var p=(S.library||[]).find(function(x){return x.id===id;});if(!p)return;
-  modal('<h3>'+esc(p.title)+'</h3>'
-    +'<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.6">'
-    +'<b>'+esc(p.authors||'')+'</b><br>'
-    +esc(p.journal||'')+' · '+esc(p.year||'')
-    +(p.doi?'<br><a href="https://doi.org/'+esc(p.doi)+'" target="_blank" style="color:var(--cyan)">doi:'+esc(p.doi)+'</a>':'')
-    +'</div>'
-    +(p.abstract?'<div style="font-size:11px;color:var(--text3);line-height:1.6;max-height:120px;overflow-y:auto;background:var(--bg3);padding:8px;border-radius:4px;margin-bottom:10px">'+esc(p.abstract)+'</div>':'')
-    +'<label>topic tags (comma separated)</label>'
-    +'<input id="lp-tags" type="text" value="'+esc((p.tags||[]).join(', '))+'">'
-    +'<label>link to claim</label>'
-    +'<select id="lp-claim"><option value="">— none —</option>'+S.claims.map(function(c){return'<option value="'+c.id+'"'+(((p.claims||[]).includes(c.id))?' selected':'')+'>'+c.title.slice(0,60)+'…</option>';}).join('')+'</select>'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">close</button><button class="mbtn" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="deleteLibPaper(\''+p.id+'\')">delete</button><button class="mbtn ok" onclick="saveLibPaper(\''+p.id+'\')">save</button></div>');
+
+  var wrap=document.createElement('div');
+
+  // Title + meta
+  var h3=document.createElement('h3');h3.textContent=p.title;wrap.appendChild(h3);
+
+  var meta=document.createElement('div');
+  meta.style.cssText='font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.6';
+  meta.innerHTML='<b>'+esc(p.authors||'')+'</b><br>'+esc(p.journal||'')+' · '+esc(p.year||'')
+    +(p.doi?'<br><a href="https://doi.org/'+esc(p.doi)+'" target="_blank" style="color:var(--cyan)">doi:'+esc(p.doi)+'</a>':'');
+  wrap.appendChild(meta);
+
+  // Abstract (collapsed)
+  if(p.abstract){
+    var ab=document.createElement('div');
+    ab.style.cssText='font-size:11px;color:var(--text3);line-height:1.6;max-height:80px;overflow-y:auto;background:var(--bg3);padding:8px;border-radius:4px;margin-bottom:10px';
+    ab.textContent=p.abstract;
+    wrap.appendChild(ab);
+  }
+
+  function mkField(labelTxt, el){
+    var lbl=document.createElement('label');lbl.textContent=labelTxt;wrap.appendChild(lbl);
+    wrap.appendChild(el);
+  }
+
+  // Read status
+  var statusEl=document.createElement('select');
+  ['unread','reading','done','key paper'].forEach(function(s){
+    var opt=document.createElement('option');opt.value=s;opt.textContent=s;
+    if((p.readStatus||'unread')===s)opt.selected=true;
+    statusEl.appendChild(opt);
+  });
+  mkField('read status', statusEl);
+
+  // Your summary
+  var summaryEl=document.createElement('textarea');
+  summaryEl.rows=3;summaryEl.placeholder='your summary in your own words — what does this paper mean for your work?';
+  summaryEl.value=p.mySummary||'';
+  mkField('your summary', summaryEl);
+
+  // Key finding
+  var findingEl=document.createElement('input');
+  findingEl.type='text';findingEl.placeholder='one sentence — the main claim this paper makes';
+  findingEl.value=p.keyFinding||'';
+  mkField('key finding', findingEl);
+
+  // Your notes
+  var notesEl=document.createElement('textarea');
+  notesEl.rows=3;notesEl.placeholder='methods to replicate, figures that matter, questions it raises, disagreements...';
+  notesEl.value=p.myNotes||'';
+  mkField('your notes', notesEl);
+
+  // Tags
+  var tagsEl=document.createElement('input');
+  tagsEl.type='text';tagsEl.placeholder='comma separated tags';
+  tagsEl.value=(p.tags||[]).join(', ');
+  mkField('topic tags', tagsEl);
+
+  // Link to claim
+  var claimEl=document.createElement('select');
+  var defOpt=document.createElement('option');defOpt.value='';defOpt.textContent='— none —';claimEl.appendChild(defOpt);
+  S.claims.forEach(function(c){
+    var opt=document.createElement('option');opt.value=c.id;opt.textContent=c.title.slice(0,60)+'...';
+    if((p.claims||[]).includes(c.id))opt.selected=true;
+    claimEl.appendChild(opt);
+  });
+  mkField('link to claim', claimEl);
+
+  // Buttons
+  var btns=document.createElement('div');btns.className='mbtns';
+  var closeBtn=document.createElement('button');closeBtn.className='mbtn';closeBtn.textContent='close';closeBtn.onclick=closeModal;
+  var delBtn=document.createElement('button');delBtn.className='mbtn';delBtn.style.cssText='color:var(--red);border-color:rgba(239,68,68,.3)';delBtn.textContent='delete';
+  delBtn.onclick=function(){deleteLibPaper(id);};
+  var saveBtn=document.createElement('button');saveBtn.className='mbtn ok';saveBtn.textContent='save';
+  saveBtn.onclick=function(){
+    p.readStatus=statusEl.value;
+    p.mySummary=summaryEl.value.trim();
+    p.keyFinding=findingEl.value.trim();
+    p.myNotes=notesEl.value.trim();
+    p.tags=tagsEl.value.split(',').map(function(t){return t.trim();}).filter(Boolean);
+    p.claims=claimEl.value?[claimEl.value]:[];
+    save();closeModal();renderLibrary();toast('paper saved');
+  };
+  btns.appendChild(closeBtn);btns.appendChild(delBtn);btns.appendChild(saveBtn);
+  wrap.appendChild(btns);
+
+  // Use DOM-based modal
+  var mbox=document.getElementById('mbox');
+  mbox.innerHTML='';mbox.appendChild(wrap);
+  document.getElementById('overlay').classList.add('open');
 }
 
-function saveLibPaper(id){
-  var p=(S.library||[]).find(function(x){return x.id===id;});if(!p)return;
-  var tags=document.getElementById('lp-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
-  var cid=document.getElementById('lp-claim').value;
-  p.tags=tags;
-  p.claims=cid?[cid]:[];
-  save();closeModal();renderLibrary();updateStats();toast('paper saved');
-}
+function saveLibPaper(id){/* handled inline in selectLibPaper */}
 
 function deleteLibPaper(id){
   if(!confirm('Remove from library?'))return;
