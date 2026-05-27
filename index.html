@@ -374,6 +374,8 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <button class="fbtn" onclick="clearInbox()" style="flex:0;padding:5px 8px;" title="clear inbox">✕</button>
   </div>
   <div id="feed-list"><div class="empty">fetch papers to review<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from your claims</span></div></div>
+  <div id="feed-settings-btn" onclick="toggleFeedSettings()" style="padding:8px 12px;border-top:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text3);transition:color .15s;flex-shrink:0;"><span>&#9881;</span><span>settings</span></div>
+  <div id="feed-settings-panel" style="display:none;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;overflow-y:auto;max-height:50%;"></div>
 </div>
 
 <div class="divider" id="div-left"></div>
@@ -403,15 +405,18 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <button class="mzbtn" onclick="autoLayout()" title="auto layout" style="font-size:11px">⟳</button>
   </div>
   <div id="mapleg">
+    <div class="leg-section">strands</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-jam)"></div>jamming</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-col)"></div>migration</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-yap)"></div>YAP</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-nuc)"></div>nematic</div>
-    <div style="height:5px"></div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-est)"></div>established</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-lik)"></div>likely</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-con)"></div>contested</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-yrs)"></div>yours</div>
+    <div style="height:6px"></div>
+    <div class="leg-section">confidence</div>
+    <div class="legrow"><div class="legdot" style="background:#f59e0b"></div>established</div>
+    <div class="legrow"><div class="legdot" style="background:#f59e0b;opacity:0.5"></div>likely</div>
+    <div class="legrow"><div class="legdot" style="background:transparent;border:1.5px solid #f59e0b;width:7px;height:7px"></div>contested</div>
+    <div class="legrow"><div class="legdot" style="background:transparent;border:1.5px solid #f59e0b;opacity:0.35;width:7px;height:7px"></div>speculation</div>
+    <div class="legrow"><div style="font-size:11px;color:#f59e0b;margin-right:2px;line-height:1">&#9733;</div>yours</div>
   </div>
   <div id="maphint">scroll to zoom · drag to pan · right-click nodes for options · press F to fit</div>
 </div>
@@ -518,7 +523,6 @@ async function init(){
     document.getElementById('stklbl').textContent='day '+S.streak;
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
-  await loadState();
   updateStats();renderPills();renderFeed();initMap();renderMap();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
 }
@@ -1466,6 +1470,7 @@ document.getElementById('overlay').addEventListener('click',function(e){if(e.tar
 function v(id){var el=document.getElementById(id);return el?el.value.trim():'';}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
+function resetData(){if(!confirm('Reset all data to seed? Cannot be undone.'))return;localStorage.removeItem('epigraph');location.reload();}
 
 // ── FEED SETTINGS ──
 function toggleFeedSettings(){
