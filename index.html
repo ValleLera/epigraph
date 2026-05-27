@@ -502,21 +502,34 @@ var SEED_NOTES=[
 ];
 
 // ══ INIT ══
-function init(){
+async function init(){
   try{
-    var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
-    if(sv){var p=JSON.parse(sv);S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();}
+    var p=null;
+    if(window.epigraph&&window.epigraph.isElectron){
+      try{p=await window.epigraph.loadData();}catch(e){}
+    } else {
+      var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
+      if(sv)try{p=JSON.parse(sv);}catch(e){}
+    }
+    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();}
     else{S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);}
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
     document.getElementById('stklbl').textContent='day '+S.streak;
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
+  await loadState();
   updateStats();renderPills();renderFeed();initMap();renderMap();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
 }
 function dc(o){return JSON.parse(JSON.stringify(o));}
-function save(){try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e){}}
+function save(){
+  if(window.epigraph && window.epigraph.isElectron){
+    window.epigraph.saveData(S).catch(function(e){console.error('save error',e);});
+  } else {
+    try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e){}
+  }
+}
 
 
 function updateStats(){
@@ -1316,47 +1329,58 @@ function renderOverview(){
 function renderSettings(){/* settings moved to left panel */}
 
 // ── EXPORT / IMPORT ──
-function exportData(){
+async function exportData(){
   var data=JSON.parse(JSON.stringify(S));
-  var meta={exported:new Date().toISOString(),version:'v4',
-    claims:data.claims.length,library:(data.library||[]).length,
-    notes:(data.notes||[]).length,projects:(data.projects||[]).length};
-  var blob=new Blob([JSON.stringify({meta:meta,data:data},null,2)],{type:'application/json'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='epigraph_backup_'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
-  toast('exported: '+meta.claims+' claims, '+meta.library+' papers');
+  if(window.epigraph && window.epigraph.isElectron){
+    var result=await window.epigraph.exportData(data);
+    if(result.ok)toast('exported to '+result.filePath.split('/').pop());
+    else if(!result.cancelled)toast('export failed: '+result.error);
+  } else {
+    var meta={exported:new Date().toISOString(),version:'v4',
+      claims:data.claims.length,library:(data.library||[]).length,
+      notes:(data.notes||[]).length,projects:(data.projects||[]).length};
+    var blob=new Blob([JSON.stringify({meta:meta,data:data},null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='epigraph_backup_'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();
+    toast('exported');
+  }
 }
 function triggerImport(){
   var el=document.getElementById('import-file-input');
   if(el)el.click();
 }
-function importData(input){
-  var file=input.files[0];if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var parsed=JSON.parse(e.target.result);
-      var incoming=parsed.data||parsed;
-      if(!incoming.claims){toast('invalid backup file');return;}
-      var msg='Import will replace your current data:\n'
-        +'  '+incoming.claims.length+' claims\n'
-        +'  '+((incoming.library||[]).length)+' papers\n'
-        +'Continue?';
-      if(!confirm(msg))return;
-      S.claims=incoming.claims||S.claims;
-      S.library=incoming.library||[];
-      S.notes=incoming.notes||[];
-      S.projects=incoming.projects||[];
-      S.topics=incoming.topics||S.topics;
-      S.inbox=incoming.inbox||[];
-      save();updateStats();renderMap();renderRight();
-      toast('imported: '+S.claims.length+' claims');
-    }catch(err){toast('error: '+err.message);}
-  };
-  reader.readAsText(file);
-  input.value='';
+async function importData(input){
+  if(window.epigraph && window.epigraph.isElectron){
+    var result=await window.epigraph.importData();
+    if(!result.ok||result.cancelled)return;
+    var incoming=result.data.data||result.data;
+    if(!incoming.claims){toast('invalid backup file');return;}
+    if(!confirm('Import '+incoming.claims.length+' claims and '+((incoming.library||[]).length)+' papers?'))return;
+    S.claims=incoming.claims;S.library=incoming.library||[];
+    S.notes=incoming.notes||[];S.projects=incoming.projects||[];
+    S.topics=incoming.topics||S.topics;S.inbox=incoming.inbox||[];
+    save();updateStats();renderMap();renderRight();
+    toast('imported: '+S.claims.length+' claims');
+  } else {
+    var file=input.files[0];if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        var parsed=JSON.parse(e.target.result);
+        var incoming=parsed.data||parsed;
+        if(!incoming.claims){toast('invalid backup file');return;}
+        if(!confirm('Import '+incoming.claims.length+' claims?'))return;
+        S.claims=incoming.claims;S.library=incoming.library||[];
+        S.notes=incoming.notes||[];S.projects=incoming.projects||[];
+        S.topics=incoming.topics||S.topics;S.inbox=incoming.inbox||[];
+        save();updateStats();renderMap();renderRight();
+        toast('imported: '+S.claims.length+' claims');
+      }catch(err){toast('error: '+err.message);}
+    };
+    reader.readAsText(file);input.value='';
+  }
 }
 
 // ── ASSIGN PAPER TO CLAIM ──
