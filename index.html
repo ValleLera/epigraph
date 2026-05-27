@@ -531,7 +531,6 @@ async function init(){
     document.getElementById('stklbl').textContent='day '+S.streak;
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
-  await loadState();
   updateStats();renderPills();renderFeed();initMap();renderMap();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
 }
