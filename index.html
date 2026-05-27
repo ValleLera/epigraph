@@ -83,6 +83,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 /* LAYOUT */
 #shell{display:flex;flex-direction:column;height:100vh;}
 #main{display:flex;flex:1;overflow:hidden;}
+.divider{width:4px;background:var(--border);cursor:col-resize;flex-shrink:0;transition:background .15s;position:relative;z-index:5;}
+.divider:hover,.divider.dragging{background:var(--amber);}
 
 /* FEED */
 #feed{width:280px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
@@ -128,6 +130,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .mzbtn:hover{border-color:var(--amber);color:var(--amber);}
 #mapleg{position:absolute;bottom:14px;left:14px;display:flex;flex-direction:column;gap:5px;}
 .legrow{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);font-family:var(--mono);}
+.leg-section{font-size:9px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em;opacity:.6;margin-bottom:2px;}
 .legdot{width:8px;height:8px;border-radius:50%;}
 #maphint{position:absolute;top:50px;left:50%;transform:translateX(-50%);font-size:11px;font-family:var(--mono);color:var(--text3);pointer-events:none;transition:opacity .5s;white-space:nowrap;}
 
@@ -208,7 +211,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .tf.on{border-color:var(--purple);color:var(--purple);}
 
 /* PROJECTS */
-.pj{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;}
+.pj{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;}
+.pj:hover{border-color:var(--border2);}
+.pj.pj-open{border-color:var(--amber);cursor:default;}
+/* Project detail view */
+.pj-detail{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+.pj-detail-header{padding:0 0 10px;border-bottom:1px solid var(--border);flex-shrink:0;margin-bottom:12px;}
+.pj-detail-back{font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:4px;}
+.pj-detail-back:hover{color:var(--amber);}
+.pj-detail-title{font-size:16px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:6px;}
+.pj-detail-title[contenteditable]:focus{outline:none;border-bottom:1px solid var(--amber);}
+.pj-detail-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pj-status-sel{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 7px;color:var(--text2);font-size:11px;font-family:var(--mono);outline:none;cursor:pointer;}
+.pj-detail-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.pj-detail-body::-webkit-scrollbar{width:2px;}
+.pj-detail-body::-webkit-scrollbar-thumb{background:var(--bg4);}
+.pj-field-label{font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.pj-hyp-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:7px 9px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;line-height:1.5;}
+.pj-hyp-input:focus{border-color:var(--border2);}
+.pj-big-notes{width:100%;flex:1;min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;resize:none;line-height:1.7;}
+.pj-big-notes:focus{border-color:var(--border2);}
+.pj-big-notes::placeholder{color:var(--text3);}
 .pj.apj{border-color:rgba(245,158,11,.25);}
 .pjhd{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;}
 .pjdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
@@ -353,6 +376,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div id="feed-list"><div class="empty">fetch papers to review<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from your claims</span></div></div>
 </div>
 
+<div class="divider" id="div-left"></div>
 <!-- MAP -->
 <div id="mapwrap">
   <div id="maptb">
@@ -392,6 +416,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div id="maphint">scroll to zoom · drag to pan · right-click nodes for options · press F to fit</div>
 </div>
 
+<div class="divider" id="div-right"></div>
 <!-- RIGHT -->
 <div id="right">
   <div class="rtabs">
@@ -400,7 +425,6 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <div class="rtab" id="rt-projects" onclick="rtab('projects')">projects</div>
     <div class="rtab" id="rt-notes" onclick="rtab('notes')">notes</div>
     <div class="rtab" id="rt-overview" onclick="rtab('overview')">overview</div>
-    <div class="rtab" id="rt-settings" onclick="rtab('settings')">settings</div>
   </div>
   <div id="rbody"><div class="empty">click a node<br>to explore</div></div>
 </div>
@@ -448,6 +472,9 @@ var S={claims:[],library:[],projects:[],notes:[],papers:[],topics:[
 var selId=null,ctxId=null,mapF='all',weakMode=false,rightTab='claim';
 var tx=0,ty=0,sc=1,panning=false,psx=0,psy=0,pox=0,poy=0;
 var assignPaper=null,assignType='for';
+var feedTab='inbox';
+var libSort='year',libSortDir=-1,libTagFilter='',libSearch='';
+var mapSvg,vp,el,nl;
 var libSort='year',libSortDir=-1,libTagFilter='',libSearch='';
 
 // ══ SEED CLAIMS ══
@@ -490,12 +517,7 @@ function init(){
 }
 function dc(o){return JSON.parse(JSON.stringify(o));}
 function save(){try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e){}}
-function updateFeedCounts(){
-  var inbox=(S.inbox||[]).filter(function(p){return!p.dismissed;});
-  var dis=(S.inbox||[]).filter(function(p){return p.dismissed;});
-  document.getElementById('inbox-cnt').textContent='('+inbox.length+')';
-  document.getElementById('dis-cnt').textContent='('+dis.length+')';
-}
+
 
 function updateStats(){
   document.getElementById('sc').textContent=S.claims.length;
@@ -507,7 +529,6 @@ function updateStats(){
 }
 
 // ══ MAP ══
-var mapSvg,vp,el,nl;
 function initMap(){
   mapSvg=document.getElementById('mapsvg');vp=document.getElementById('vp');el=document.getElementById('el');nl=document.getElementById('nl');
   mapSvg.addEventListener('mousedown',function(e){if(e.target===mapSvg||e.target===el||e.target===vp){panning=true;psx=e.clientX;psy=e.clientY;pox=tx;poy=ty;mapSvg.classList.add('grabbing');}});
@@ -534,8 +555,9 @@ function initMap(){
   });
 }
 function applyT(){vp.setAttribute('transform','translate('+tx+','+ty+') scale('+sc+')');}
-function zm(f){var r=mapSvg.getBoundingClientRect();var mx=r.width/2,my=r.height/2;tx=mx+f*(tx-mx);ty=my+f*(ty-my);sc=Math.max(.05,Math.min(4,sc*f));applyT();}
+function zm(f){if(!mapSvg)return;var r=mapSvg.getBoundingClientRect();var mx=r.width/2,my=r.height/2;tx=mx+f*(tx-mx);ty=my+f*(ty-my);sc=Math.max(.05,Math.min(4,sc*f));applyT();}
 function fit(){
+  if(!mapSvg)return;
   var vis=S.claims.filter(function(c){return mapF==='all'||c.strand===mapF;});
   if(!vis.length)return;
   var xs=vis.map(function(c){return c.x;}),ys=vis.map(function(c){return c.y;});
@@ -559,6 +581,7 @@ function autoLayout(){
 }
 
 function renderMap(){
+  if(!el||!nl){return;}
   el.innerHTML='';nl.innerHTML='';
   var ns=S.settings.nodeSize||1;
   var nw=Math.round(160*ns),nh=Math.round(56*ns);
@@ -671,42 +694,67 @@ function renderRight(){
   else if(rightTab==='projects')renderProjects();
   else if(rightTab==='notes')renderNotes();
   else if(rightTab==='overview')renderOverview();
-  else if(rightTab==='settings')renderSettings();
+
 }
 
 // ── CLAIM DETAIL ──
 function renderClaimDetail(){
   var body=document.getElementById('rbody');
   if(!selId){body.innerHTML='<div class="empty">click a claim<br>on the map<br>to explore it</div>';return;}
-  var c=S.claims.find(function(x){return x.id===selId;});if(!c){body.innerHTML='';return;}
+  var c=S.claims.find(function(x){return x.id===selId;});
+  if(!c){body.innerHTML='<div class="empty">claim not found</div>';return;}
   var sL={jam:'jamming',col:'migration',yap:'YAP/packing',nuc:'nematic'};
   var sB={jam:'b-jam',col:'b-col',yap:'b-yap',nuc:'b-nuc'};
   var confs=['established','likely','contested','speculation','yours'];
-  var cOpts=confs.map(function(cv){return'<span class="copt'+(c.conf===cv?' sel':'')+'" data-c="'+cv+'" data-cid="'+esc(c.id)+'" onclick="setConfEl(this)">'+cv+'</span>';}).join('');
-  var lTo=(c.leads||[]).map(function(lid){var t=S.claims.find(function(x){return x.id===lid;});return t?'<span class="chip" onclick="selClaim(\''+lid+'\')">→ '+t.title.slice(0,28)+'…</span>':'';}).join('');
-  var lFrom=S.claims.filter(function(x){return(x.leads||[]).includes(c.id);}).map(function(x){return'<span class="chip" onclick="selClaim(\''+x.id+'\')">← '+x.title.slice(0,28)+'…</span>';}).join('');
+  var cOpts=confs.map(function(cv){
+    return '<span class="copt'+(c.conf===cv?' sel':'')+'" data-c="'+cv+'" data-cid="'+esc(c.id)+'" onclick="setConfEl(this)">'+cv+'</span>';
+  }).join('');
+  var lTo=(c.leads||[]).map(function(lid){
+    var t=S.claims.find(function(x){return x.id===lid;});
+    return t?'<span class="chip" data-cid="'+esc(lid)+'" onclick="selClaim(this.dataset.cid)">'+String.fromCharCode(8594)+' '+esc(t.title.slice(0,28))+'...</span>':'';
+  }).join('');
+  var lFrom=S.claims.filter(function(x){return(x.leads||[]).includes(c.id);}).map(function(x){
+    return '<span class="chip" data-cid="'+esc(x.id)+'" onclick="selClaim(this.dataset.cid)">'+String.fromCharCode(8592)+' '+esc(x.title.slice(0,28))+'...</span>';
+  }).join('');
   var nc=S.notes.filter(function(n){return n.linkedClaim===c.id;}).length;
-  var pc=(c.forPapers||'').split(';').filter(function(x){return x.trim();}).length+(c.againstPapers||'').split(';').filter(function(x){return x.trim();}).length;
-  // library papers linked to this claim
+  var pc=(c.forPapers||'').split(';').filter(function(x){return x.trim();}).length
+         +(c.againstPapers||'').split(';').filter(function(x){return x.trim();}).length;
   var libLinked=(S.library||[]).filter(function(p){return(p.claims||[]).includes(c.id);});
-  body.innerHTML='<div class="cd">'
-  var _cid=c.id;
-  body.querySelector('.cd-edit') && body.querySelector('.cd-edit').addEventListener('click',function(){openEdit(_cid);});
-  body.querySelector('.cd-note') && body.querySelector('.cd-note').addEventListener('click',function(){addNote(_cid);});
-  body.querySelector('.cd-claude') && body.querySelector('.cd-claude').addEventListener('click',function(){askClaude(_cid);});
-    +'<div class="cdtitle">'+esc(c.title)+'</div>'
-    +'<div class="cdbadges"><span class="badge '+sB[c.strand]+'">'+sL[c.strand]+'</span>'+(c.conf==='yours'?'<span class="badge b-yours">your work</span>':'')+'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+pc+'p · '+nc+' notes'+(libLinked.length?' · '+libLinked.length+' lib':'')+'</span></div>'
-    +'<div class="csel">'+cOpts+'</div>'
-    +'<div class="sec"><div class="slbl">mechanism</div><div class="sval">'+esc(c.mechanism||'—')+'</div></div>'
-    +'<div class="sec"><div class="slbl">supporting</div><div class="sval for">'+esc(c.forPapers||'—')+'</div></div>'
-    +'<div class="sec"><div class="slbl">against</div><div class="sval against">'+esc(c.againstPapers||'—')+'</div></div>'
-    +'<div class="sec"><div class="slbl">open question</div><div class="sval open">'+esc(c.open||'—')+'</div></div>'
-    +((lTo||lFrom)?'<div class="sec"><div class="slbl">connections</div><div class="chips">'+lTo+lFrom+'</div></div>':'')
-    +(libLinked.length?'<div class="sec"><div class="slbl">library papers</div>'+libLinked.slice(0,4).map(function(p){return'<div style="font-size:11px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border);">'+esc(p.authors_short||'')+' '+esc(p.year||'')+' — '+esc(p.title.slice(0,50))+'…</div>';}).join('')+'</div>':'')
-    +'<div class="arow"><button class="act pur" onclick="openEdit(\''+c.id+'\')">edit</button><button class="act" onclick="addNote(\''+c.id+'\')">+ note</button></div>'
-    +'<div class="arow"><button class="act" onclick="askClaude(\''+c.id+'\')">ask Claude ↗</button></div>'
-    +'</div>';
+  var html='<div class="cd">';
+  html+='<div class="cdtitle">'+esc(c.title)+'</div>';
+  html+='<div class="cdbadges">';
+  html+='<span class="badge '+sB[c.strand]+'">'+sL[c.strand]+'</span>';
+  if(c.conf==='yours')html+='<span class="badge b-yours">your work</span>';
+  html+='<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+pc+'p &middot; '+nc+' notes'+(libLinked.length?' &middot; '+libLinked.length+' lib':'')+'</span>';
+  html+='</div>';
+  html+='<div class="csel">'+cOpts+'</div>';
+  html+='<div class="sec"><div class="slbl">mechanism</div><div class="sval">'+esc(c.mechanism||'—')+'</div></div>';
+  html+='<div class="sec"><div class="slbl">supporting</div><div class="sval for">'+esc(c.forPapers||'—')+'</div></div>';
+  html+='<div class="sec"><div class="slbl">against</div><div class="sval against">'+esc(c.againstPapers||'—')+'</div></div>';
+  html+='<div class="sec"><div class="slbl">open question</div><div class="sval open">'+esc(c.open||'—')+'</div></div>';
+  if(lTo||lFrom)html+='<div class="sec"><div class="slbl">connections</div><div class="chips">'+lTo+lFrom+'</div></div>';
+  if(libLinked.length){
+    html+='<div class="sec"><div class="slbl">library papers</div>';
+    libLinked.slice(0,4).forEach(function(p){
+      html+='<div style="font-size:11px;color:var(--text2);padding:3px 0;border-bottom:1px solid var(--border)">'+esc(p.authors_short||'')+' '+esc(p.year||'')+' — '+esc(p.title.slice(0,50))+'...</div>';
+    });
+    html+='</div>';
+  }
+  html+='<div class="arow">';
+  html+='<button class="act pur" id="btn-edit-claim">edit</button>';
+  html+='<button class="act" id="btn-note-claim">+ note</button>';
+  html+='</div>';
+  html+='<div class="arow">';
+  html+='<button class="act" id="btn-claude-claim">ask Claude '+String.fromCharCode(8599)+'</button>';
+  html+='</div>';
+  html+='</div>';
+  body.innerHTML=html;
+  var cid=c.id;
+  document.getElementById('btn-edit-claim').onclick=function(){openEdit(cid);};
+  document.getElementById('btn-note-claim').onclick=function(){addNote(cid);};
+  document.getElementById('btn-claude-claim').onclick=function(){askClaude(cid);};
 }
+
 function selClaim(id){selId=id;rtab('claim');renderMap();renderRight();}
 function setConf(id,conf){var c=S.claims.find(function(x){return x.id===id;});if(c){c.conf=conf;save();renderMap();renderRight();toast('→ '+conf);}}
 function setConfEl(el){var id=el.dataset.cid,conf=el.dataset.c;setConf(id,conf);}
@@ -716,15 +764,16 @@ function renderLibrary(){
   var body=document.getElementById('rbody');
   var lib=S.library||[];
 
-  // filter
   var filtered=lib.filter(function(p){
     var q=libSearch.toLowerCase();
-    if(q&&!((p.title||'').toLowerCase().includes(q)||(p.authors||'').toLowerCase().includes(q)||(p.last_author||'').toLowerCase().includes(q)||(p.journal||'').toLowerCase().includes(q)))return false;
+    if(q&&!((p.title||'').toLowerCase().includes(q)
+          ||(p.authors||'').toLowerCase().includes(q)
+          ||(p.last_author||'').toLowerCase().includes(q)
+          ||(p.journal||'').toLowerCase().includes(q)))return false;
     if(libTagFilter&&!(p.tags||[]).includes(libTagFilter))return false;
     return true;
   });
 
-  // sort
   filtered.sort(function(a,b){
     var av,bv;
     if(libSort==='year'){av=parseInt(a.year)||0;bv=parseInt(b.year)||0;}
@@ -735,46 +784,72 @@ function renderLibrary(){
     if(av<bv)return -libSortDir;if(av>bv)return libSortDir;return 0;
   });
 
-  // collect all tags
   var allTags={};
   lib.forEach(function(p){(p.tags||[]).forEach(function(t){allTags[t]=(allTags[t]||0)+1;});});
 
-  var tagHtml='<div class="tag-filter"><span class="tf'+(libTagFilter===''?' on':'')+'" onclick="setTagFilter(\'\')">all ('+lib.length+')</span>';
-  Object.keys(allTags).sort().forEach(function(t){tagHtml+='<span class="tf'+(libTagFilter===t?' on':'')+'" onclick="setTagFilter(\''+esc(t)+'\')">'+esc(t)+' ('+allTags[t]+')</span>';});
-  tagHtml+='</div>';
+  var html='';
 
-  var sortCols=[
-    {k:'year',l:'year'},{k:'first_author',l:'first author'},{k:'last_author',l:'last author'},
-    {k:'journal',l:'journal'},{k:'title',l:'title'}
-  ];
-  var thHtml=sortCols.map(function(col){return'<th class="'+(libSort===col.k?'sorted':'')+'" onclick="setLibSort(\''+col.k+'\')">'+col.l+(libSort===col.k?(libSortDir===1?' ↑':' ↓'):'')+'</th>';}).join('')+'<th>tags</th><th>claim</th>';
+  // Controls
+  html+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">';
+  html+='<input id="lib-search" type="text" placeholder="search..." style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;" value="'+esc(libSearch)+'">';
+  html+='<button class="lbtn" id="lib-import-btn">+ import .bib</button>';
+  html+='<button class="lbtn" id="lib-add-btn">+ add</button>';
+  html+='</div>';
 
-  var rowHtml=filtered.length?filtered.map(function(p){
-    var doi=p.doi?'<a href="https://doi.org/'+esc(p.doi)+'" target="_blank" style="color:var(--cyan);font-size:9px;font-family:var(--mono)">↗</a>':'';
-    var tags=(p.tags||[]).map(function(t){return'<span class="lib-tag">'+esc(t)+'</span>';}).join('');
-    var claimed=(p.claims||[]).length?'<span class="lib-claimed">'+p.claims.length+'✓</span>':'';
-    return'<tr onclick="selectLibPaper(\''+p.id+'\')">'
-      +'<td class="lib-year">'+esc(p.year||'?')+'</td>'
-      +'<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>'
-      +'<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>'
-      +'<td class="lib-title-cell">'+esc(p.title.slice(0,60))+(p.title.length>60?'…':'')+' '+doi+'</td>'
-      +'<td class="lib-journal" title="'+esc(p.journal||'')+'">'+esc(p.journal_short||p.journal||'')+'</td>'
-      +'<td>'+tags+'</td>'
-      +'<td>'+claimed+'</td>'
-      +'</tr>';
-  }).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px;">'+(lib.length?'no matches':'library empty — import .bib or add manually')+'</td></tr>';
+  // Tag filters
+  html+='<div class="tag-filter">';
+  html+='<span class="tf'+(libTagFilter===''?' on':'')+'" data-tag="" onclick="setTagEl(this)">all ('+lib.length+')</span>';
+  Object.keys(allTags).sort().forEach(function(t){
+    html+='<span class="tf'+(libTagFilter===t?' on':'')+'" data-tag="'+esc(t)+'" onclick="setTagEl(this)">'+esc(t)+' ('+allTags[t]+')</span>';
+  });
+  html+='</div>';
 
-  body.innerHTML='<div id="lib-controls">'
+  // Stats
+  html+='<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin:6px 0"><b style="color:var(--text2)">'+filtered.length+'</b> of <b style="color:var(--text2)">'+lib.length+'</b> papers</div>';
+
+  // Table
+  var sortCols=[{k:'year',l:'year'},{k:'first_author',l:'1st auth'},{k:'last_author',l:'last auth'},{k:'journal',l:'journal'},{k:'title',l:'title'}];
+  html+='<div style="overflow-x:auto"><table class="lib-table"><thead><tr>';
+  sortCols.forEach(function(col){
+    html+='<th class="'+(libSort===col.k?'sorted':'')+'" data-sort="'+col.k+'" onclick="setLibSort(this.dataset.sort)">'+col.l+(libSort===col.k?(libSortDir===1?' ↑':' ↓'):'')+'</th>';
+  });
+  html+='<th>tags</th><th>+</th></tr></thead><tbody>';
+
+  if(filtered.length){
+    filtered.forEach(function(p){
+      var doi=p.doi?'<a href="https://doi.org/'+esc(p.doi)+'" target="_blank" style="color:var(--cyan);font-size:9px">↗</a>':'';
+      var tags=(p.tags||[]).map(function(t){return'<span class="lib-tag">'+esc(t)+'</span>';}).join('');
+      var claimed=(p.claims||[]).length?'<span class="lib-claimed">'+(p.claims.length)+'✓</span>':'';
+      html+='<tr class="lib-row" data-pid="'+esc(p.id)+'">';
+      html+='<td class="lib-year">'+esc(p.year||'?')+'</td>';
+      html+='<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>';
+      html+='<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>';
+      html+='<td class="lib-title-cell">'+esc(p.title.slice(0,55))+(p.title.length>55?'...':'')+' '+doi+'</td>';
+      html+='<td class="lib-journal" title="'+esc(p.journal||'')+'">'+esc((p.journal_short||p.journal||'').slice(0,18))+'</td>';
+      html+='<td>'+tags+'</td>';
+      html+='<td>'+claimed+'</td>';
+      html+='</tr>';
+    });
+  } else {
+    html+='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px;">'+(lib.length?'no matches':'library empty<br>import .bib or add manually')+'</td></tr>';
+  }
+  html+='</tbody></table></div>';
+
+  body.innerHTML=html;
+
+  // Attach events after innerHTML
+  var si=document.getElementById('lib-search');
+  if(si)si.oninput=function(){libSearchUpdate(si.value);};
+
+  var ib=document.getElementById('lib-import-btn');
+  if(ib)ib.onclick=openImport;
+
+  var ab=document.getElementById('lib-add-btn');
+  if(ab)ab.onclick=openAddPaper;
+
   body.querySelectorAll('.lib-row').forEach(function(row){
     row.addEventListener('click',function(){selectLibPaper(row.dataset.pid);});
   });
-    +'<input id="lib-search" type="text" placeholder="search title, author, journal…" value="'+esc(libSearch)+'" oninput="libSearchUpdate(this.value)">'
-    +'<button class="lbtn" onclick="openImport()">⊕ import .bib</button>'
-    +'<button class="lbtn" onclick="openAddPaper()">+ add</button>'
-    +'</div>'
-    +tagHtml
-    +'<div class="lib-stats"><b>'+filtered.length+'</b> of <b>'+lib.length+'</b> papers</div>'
-    +'<div style="overflow-x:auto;"><table class="lib-table"><thead><tr>'+thHtml+'</tr></thead><tbody>'+rowHtml+'</tbody></table></div>';
 }
 
 function libSearchUpdate(v){libSearch=v;renderLibrary();}
@@ -843,34 +918,65 @@ function doBibImport(){
 
 function parseBib(text){
   var results=[];
-  // split into entries
-  var entries=text.split(/\n@/).map(function(e,i){return i===0?e:'@'+e;}).filter(function(e){return e.trim().startsWith('@');});
+  var entries=[];
+  // Split on @ that starts a new entry
+  var raw=text.split(/\n(?=@)/);
+  raw.forEach(function(block){
+    block=block.trim();
+    if(!block.startsWith('@'))return;
+    var typeM=block.match(/^@(\w+)\s*\{/i);
+    if(!typeM)return;
+    var type=typeM[1].toLowerCase();
+    if(type==='comment'||type==='preamble'||type==='string')return;
+    entries.push(block);
+  });
+
   entries.forEach(function(entry){
     try{
-      var typeMatch=entry.match(/@(\w+)\s*\{([^,]+),/);
-      if(!typeMatch)return;
-      var type=typeMatch[1].toLowerCase();
-      if(type==='comment'||type==='preamble')return;
-      var getF=function(f){var m=entry.match(new RegExp('\\b'+f+'\\s*=\\s*[{"]([\\s\\S]*?)[}"]\\s*[,}]','i'));if(m)return m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim();return'';};
-      var title=getF('title');if(!title)return;
-      var authors=getF('author');
-      var year=getF('year');
+      // Extract field value - handles {value} and "value" with nested braces
+      function getF(field){
+        var re=new RegExp(field+'\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*[,\n]','i');
+        var m=entry.match(re);
+        if(m)return m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim();
+        re=new RegExp(field+'\\s*=\\s*"([\\s\\S]*?)"\\s*[,\n]','i');
+        m=entry.match(re);
+        if(m)return m[1].replace(/\s+/g,' ').trim();
+        // try without trailing comma (last field)
+        re=new RegExp(field+'\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*\\}','i');
+        m=entry.match(re);
+        if(m)return m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim();
+        return '';
+      }
+      var title=getF('title');
+      if(!title)return;
+      var authors=getF('author')||getF('authors')||'';
+      var year=getF('year')||'';
       var journal=getF('journal')||getF('booktitle')||getF('publisher')||'';
-      var doi=getF('doi');
-      var abstract=getF('abstract');
-      // parse first/last author
-      var authorList=authors.split(/\s+and\s+/i).map(function(a){return a.trim();});
+      var doi=getF('doi')||'';
+      var abstract=getF('abstract')||'';
+      // Parse author list
+      var authorList=authors.split(/\s+and\s+/i).map(function(a){return a.trim();}).filter(Boolean);
+      function lastNameFirst(a){
+        var parts=a.split(',');
+        return parts[0].trim();
+      }
       var firstAuth=authorList[0]||'';
       var lastAuth=authorList[authorList.length-1]||firstAuth;
-      var authShort=function(a){var parts=a.split(',');return parts[0].trim();};
-      var authsShort=authorList.slice(0,2).map(authShort).join(', ')+(authorList.length>2?' et al.':'');
+      var authsShort=authorList.slice(0,2).map(lastNameFirst).join(', ')+(authorList.length>2?' et al.':'');
       results.push({
-        id:'lib_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        title:title,authors:authors,authors_short:authsShort,
-        first_author:authShort(firstAuth),last_author:authShort(lastAuth),
-        last_author_short:authShort(lastAuth),
-        year:year,journal:journal,journal_short:journal.slice(0,20),
-        doi:doi,abstract:abstract,tags:[],claims:[],
+        id:'lib_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+        title:title,
+        authors:authors,
+        authors_short:authsShort,
+        first_author:lastNameFirst(firstAuth),
+        last_author:lastNameFirst(lastAuth),
+        last_author_short:lastNameFirst(lastAuth).slice(0,20),
+        year:year,
+        journal:journal,
+        journal_short:journal.slice(0,25),
+        doi:doi,
+        abstract:abstract.slice(0,500),
+        tags:[],claims:[],
         imported:new Date().toISOString()
       });
     }catch(e){}
@@ -904,20 +1010,169 @@ function saveAddPaper(){
 function renderProjects(){
   var body=document.getElementById('rbody');
   var html='<button class="newbtn" onclick="openNewProject()">+ new project</button>';
-  if(!S.projects.length){html+='<div class="empty">no projects yet</div>';body.innerHTML=html;return;}
+  if(!S.projects.length){
+    html+='<div class="empty">no projects yet<br><span style="font-size:10px;opacity:.6">click + to create one</span></div>';
+    body.innerHTML=html;return;
+  }
   S.projects.forEach(function(p){
-    var links=(p.linkedClaims||[]).map(function(cid){var cl=S.claims.find(function(x){return x.id===cid;});return cl?'<span class="pjlnk" onclick="selClaim(\''+cid+'\')">'+cl.title.slice(0,30)+'…</span>':'';}).join('');
-    var dc=p.status==='active'?'var(--amber)':p.status==='done'?'var(--green)':'var(--text3)';
-    html+='<div class="pj'+(p.status==='active'?' apj':'')+'">'
-      +'<div class="pjhd"><div class="pjdot" style="background:'+dc+'"></div><div class="pjname">'+esc(p.name)+'</div><span class="pjst">'+p.status+'</span></div>'
+    var dotColor=p.status==='active'?'var(--amber)':p.status==='done'?'var(--green)':'var(--text3)';
+    var links=(p.linkedClaims||[]).map(function(cid){
+      var cl=S.claims.find(function(x){return x.id===cid;});
+      return cl?'<span style="font-size:10px;color:var(--purple);font-family:var(--mono)">'+esc(cl.title.slice(0,25))+'...</span>':'';
+    }).join(' ');
+    html+='<div class="pj" data-pjid="'+esc(p.id)+'" onclick="openProject(this.dataset.pjid)">'
+      +'<div class="pjhd"><div class="pjdot" style="background:'+dotColor+'"></div>'
+      +'<div class="pjname">'+esc(p.name)+'</div>'
+      +'<span class="pjst">'+p.status+'</span></div>'
       +(p.hypothesis?'<div class="pjhyp">'+esc(p.hypothesis)+'</div>':'')
-      +(links?'<div class="pjlinks">'+links+'</div>':'')
-      +'<textarea class="narea" placeholder="notes, next steps, observations…" onblur="savePjNote(\''+p.id+'\',this.value)">'+esc(p.notes||'')+'</textarea>'
+      +(links?'<div style="margin-top:4px">'+links+'</div>':'')
       +'</div>';
   });
   body.innerHTML=html;
 }
-function savePjNote(id,v2){var p=S.projects.find(function(x){return x.id===id;});if(p){p.notes=v2;save();}}
+
+function openProject(pid){
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  var body=document.getElementById('rbody');
+
+  // Build DOM directly - no string concatenation with quotes
+  body.innerHTML='';
+  var wrap=document.createElement('div');
+  wrap.className='pj-detail';
+
+  // Header
+  var hdr=document.createElement('div');
+  hdr.className='pj-detail-header';
+
+  var back=document.createElement('div');
+  back.className='pj-detail-back';
+  back.textContent=String.fromCharCode(8592)+' all projects';
+  back.onclick=function(){rtab('projects');};
+  hdr.appendChild(back);
+
+  var titleEl=document.createElement('div');
+  titleEl.className='pj-detail-title';
+  titleEl.contentEditable='true';
+  titleEl.textContent=p.name;
+  titleEl.onblur=function(){savePjField(pid,'name',titleEl.innerText.trim());};
+  hdr.appendChild(titleEl);
+
+  var meta=document.createElement('div');
+  meta.className='pj-detail-meta';
+
+  var statusSel=document.createElement('select');
+  statusSel.className='pj-status-sel';
+  ['planning','active','paused','done'].forEach(function(s){
+    var opt=document.createElement('option');
+    opt.value=s;opt.textContent=s;
+    if(p.status===s)opt.selected=true;
+    statusSel.appendChild(opt);
+  });
+  statusSel.onchange=function(){savePjField(pid,'status',statusSel.value);};
+  meta.appendChild(statusSel);
+
+  var dateSpan=document.createElement('span');
+  dateSpan.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono)';
+  dateSpan.textContent='created '+new Date(p.created||Date.now()).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  meta.appendChild(dateSpan);
+  hdr.appendChild(meta);
+  wrap.appendChild(hdr);
+
+  // Body
+  var bdy=document.createElement('div');
+  bdy.className='pj-detail-body';
+
+  // Hypothesis
+  var hypWrap=document.createElement('div');
+  var hypLbl=document.createElement('div');hypLbl.className='pj-field-label';hypLbl.textContent='hypothesis';
+  var hypInp=document.createElement('input');
+  hypInp.className='pj-hyp-input';
+  hypInp.value=p.hypothesis||'';
+  hypInp.placeholder='one-sentence hypothesis this project tests';
+  hypInp.onblur=function(){savePjField(pid,'hypothesis',hypInp.value);};
+  hypWrap.appendChild(hypLbl);hypWrap.appendChild(hypInp);
+  bdy.appendChild(hypWrap);
+
+  // Linked claims
+  var claimWrap=document.createElement('div');
+  var claimLbl=document.createElement('div');claimLbl.className='pj-field-label';claimLbl.textContent='linked claims';
+  claimWrap.appendChild(claimLbl);
+  var claimChips=document.createElement('div');
+  claimChips.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px';
+  (p.linkedClaims||[]).forEach(function(cid){
+    var cl=S.claims.find(function(x){return x.id===cid;});if(!cl)return;
+    var chip=document.createElement('span');chip.className='pjlnk';
+    chip.textContent=cl.title.slice(0,35)+'...';
+    chip.onclick=function(){selClaim(cid);};
+    var rm=document.createElement('span');
+    rm.textContent=' ✕';rm.style.cssText='opacity:.5;cursor:pointer';
+    rm.onclick=function(e){e.stopPropagation();unlinkClaim(pid,cid);};
+    chip.appendChild(rm);
+    claimChips.appendChild(chip);
+  });
+  claimWrap.appendChild(claimChips);
+  var claimSel=document.createElement('select');
+  claimSel.className='pj-status-sel';
+  var defaultOpt=document.createElement('option');defaultOpt.value='';defaultOpt.textContent='+ link a claim';
+  claimSel.appendChild(defaultOpt);
+  S.claims.forEach(function(c){
+    var opt=document.createElement('option');opt.value=c.id;opt.textContent=c.title.slice(0,50)+'...';
+    claimSel.appendChild(opt);
+  });
+  claimSel.onchange=function(){if(claimSel.value){linkClaimToProject(pid,claimSel.value);claimSel.value='';}};
+  claimWrap.appendChild(claimSel);
+  bdy.appendChild(claimWrap);
+
+  // Notes
+  var notesWrap=document.createElement('div');
+  notesWrap.style.cssText='flex:1;display:flex;flex-direction:column';
+  var notesLbl=document.createElement('div');notesLbl.className='pj-field-label';notesLbl.textContent='experimental notes';
+  var notesArea=document.createElement('textarea');
+  notesArea.className='pj-big-notes';
+  notesArea.placeholder='write anything here — protocol notes, observations, results, ideas, next steps...';
+  notesArea.value=p.notes||'';
+  notesArea.onblur=function(){savePjField(pid,'notes',notesArea.value);};
+  notesWrap.appendChild(notesLbl);notesWrap.appendChild(notesArea);
+  bdy.appendChild(notesWrap);
+
+  // Delete button
+  var footer=document.createElement('div');
+  footer.style.cssText='display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border);flex-shrink:0;margin-top:8px';
+  var delBtn=document.createElement('button');
+  delBtn.className='act';
+  delBtn.style.cssText='color:var(--red);border-color:rgba(239,68,68,.3)';
+  delBtn.textContent='delete project';
+  delBtn.onclick=function(){deleteProject(pid);};
+  footer.appendChild(delBtn);
+  bdy.appendChild(footer);
+
+  wrap.appendChild(bdy);
+  body.appendChild(wrap);
+}
+
+function savePjField(pid,field,val){
+  var p=S.projects.find(function(x){return x.id===pid;});
+  if(!p)return;p[field]=val;save();
+}
+function linkClaimToProject(pid,cid){
+  if(!cid)return;
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  if(!p.linkedClaims)p.linkedClaims=[];
+  if(!p.linkedClaims.includes(cid))p.linkedClaims.push(cid);
+  save();openProject(pid);
+}
+function unlinkClaim(pid,cid){
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  p.linkedClaims=(p.linkedClaims||[]).filter(function(x){return x!==cid;});
+  save();openProject(pid);
+}
+function deleteProject(pid){
+  if(!confirm('Delete this project?'))return;
+  S.projects=S.projects.filter(function(x){return x.id!==pid;});
+  save();updateStats();rtab('projects');toast('project deleted');
+}
+
+// savePjNote replaced by savePjField
 
 // ── NOTES ──
 function renderNotes(){
@@ -986,373 +1241,95 @@ function renderOverview(){
 }
 
 // ── SETTINGS ──
-function renderSettings(){
-  var body=document.getElementById('rbody');
-  var vs=S.settings.visStrands||{jam:true,col:true,yap:true,nuc:true};
-  body.innerHTML='<div class="sgroup">'
-    +'<div class="sgrouptitle">map · zoom</div>'
-    +'<div class="srow"><div><div class="slabel">zoom speed</div><div class="ssub">slower ← → faster</div></div>'
-    +'<input type="range" class="sslider" min="1" max="15" value="'+Math.round((S.settings.zoomSpeed||0.04)*100)+'" oninput="setSetting(\'zoomSpeed\',this.value/100)">'
-    +'</div>'
-    +'<div class="srow"><div class="slabel">node size</div>'
-    +'<input type="range" class="sslider" min="60" max="150" value="'+Math.round((S.settings.nodeSize||1)*100)+'" oninput="setSetting(\'nodeSize\',this.value/100)">'
-    +'</div>'
-    +'<div class="srow"><div class="slabel">edge opacity</div>'
-    +'<input type="range" class="sslider" min="5" max="80" value="'+Math.round((S.settings.edgeOpacity||0.25)*100)+'" oninput="setSetting(\'edgeOpacity\',this.value/100)">'
-    +'</div>'
-    +'</div>'
-    +'<div class="sgroup">'
-    +'<div class="sgrouptitle">visible strands</div>'
-    +'<div class="strand-toggle">'
-    +'<span class="st'+(vs.jam?' on jam':'')+' jam" onclick="toggleStrand(\'jam\')">jamming</span>'
-    +'<span class="st'+(vs.col?' on col':'')+' col" onclick="toggleStrand(\'col\')">migration</span>'
-    +'<span class="st'+(vs.yap?' on yap':'')+' yap" onclick="toggleStrand(\'yap\')">YAP</span>'
-    +'<span class="st'+(vs.nuc?' on nuc':'')+' nuc" onclick="toggleStrand(\'nuc\')">nematic</span>'
-    +'</div></div>'
-    +'<div class="sgroup">'
-    +'<div class="sgrouptitle">data</div>'
-    +'<div class="srow"><div class="slabel">export all data</div><button class="lbtn" onclick="exportData()">download JSON</button></div>'
-    +'<div class="srow"><div class="slabel">clear feed papers</div><button class="lbtn" onclick="clearInbox()">clear</button></div>'
-    +'<div class="srow"><div><div class="slabel" style="color:var(--red)">reset to seed data</div><div class="ssub">cannot be undone</div></div><button class="lbtn" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="resetData()">reset</button></div>'
-    +'</div>';
+function renderSettings(){/* settings moved to left panel */}
+
+// ── EXPORT / IMPORT ──
+function exportData(){
+  var data=JSON.parse(JSON.stringify(S));
+  var meta={exported:new Date().toISOString(),version:'v4',
+    claims:data.claims.length,library:(data.library||[]).length,
+    notes:(data.notes||[]).length,projects:(data.projects||[]).length};
+  var blob=new Blob([JSON.stringify({meta:meta,data:data},null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='epigraph_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  toast('exported: '+meta.claims+' claims, '+meta.library+' papers');
+}
+function triggerImport(){
+  var el=document.getElementById('import-file-input');
+  if(el)el.click();
+}
+function importData(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var parsed=JSON.parse(e.target.result);
+      var incoming=parsed.data||parsed;
+      if(!incoming.claims){toast('invalid backup file');return;}
+      var msg='Import will replace your current data:\n'
+        +'  '+incoming.claims.length+' claims\n'
+        +'  '+((incoming.library||[]).length)+' papers\n'
+        +'Continue?';
+      if(!confirm(msg))return;
+      S.claims=incoming.claims||S.claims;
+      S.library=incoming.library||[];
+      S.notes=incoming.notes||[];
+      S.projects=incoming.projects||[];
+      S.topics=incoming.topics||S.topics;
+      S.inbox=incoming.inbox||[];
+      save();updateStats();renderMap();renderRight();
+      toast('imported: '+S.claims.length+' claims');
+    }catch(err){toast('error: '+err.message);}
+  };
+  reader.readAsText(file);
+  input.value='';
 }
 
-function setSetting(key,val){S.settings[key]=parseFloat(val);save();renderMap();}
-function toggleStrand(s){S.settings.visStrands[s]=!S.settings.visStrands[s];save();renderMap();renderSettings();}
-function exportData(){var blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='epigraph_data.json';a.click();toast('exported');}
-function resetData(){if(!confirm('Reset all data to seed? Cannot be undone.'))return;localStorage.removeItem('epg3');location.reload();}
-
-// ── FEED ──
-var feedTab = 'inbox';
-
-function renderPills(){
-  document.getElementById('tpills').innerHTML=S.topics.map(function(t,i){
-    return '<span class="pill'+(t.on?' on':'')+'" onclick="toggleT('+i+')">'+t.l+'</span>';
+// ── ASSIGN PAPER TO CLAIM ──
+function openAssign(pid){
+  assignPaper=(S.inbox||[]).find(function(p){return p.id===pid;});
+  if(!assignPaper)return;
+  assignType='for';
+  var html='<h3>assign to claim</h3>';
+  html+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+esc(assignPaper.title)+'</div>';
+  html+='<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(this.dataset.t,this)">supports</button>';
+  html+='<button class="atbtn" data-t="against" onclick="setAt(this.dataset.t,this)">contradicts</button></div>';
+  html+='<div id="copts">'+renderCopts()+'</div>';
+  html+='<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>';
+  modal(html);
+}
+function openAssignInbox(pid){
+  assignPaper=(S.inbox||[]).find(function(p){return p.id===pid;});
+  if(!assignPaper)return;
+  openAssign(pid);
+}
+function setAt(t,btn){
+  assignType=t;
+  document.querySelectorAll('.atbtn').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
+  var el=document.getElementById('copts');
+  if(el)el.innerHTML=renderCopts();
+}
+function renderCopts(){
+  return S.claims.map(function(c){
+    return '<div class="coption '+assignType+'" data-cid="'+esc(c.id)+'" onclick="doAssign(this.dataset.cid)">'
+      +'<div class="cot">'+esc(c.title.slice(0,70))+'...</div>'
+      +'<div class="cos">'+c.strand+' · '+c.conf+'</div></div>';
   }).join('');
 }
-function toggleT(i){S.topics[i].on=!S.topics[i].on;save();renderPills();}
-
-function toggleTopicsEdit(){
-  var el=document.getElementById('topics-edit');
-  el.classList.toggle('open');
-  if(el.classList.contains('open'))renderTopicEditList();
-}
-
-function renderTopicEditList(){
-  var html="";
-  S.topics.forEach(function(t,i){
-    html+='<div class="topic-edit-row">';
-    html+='<input value="'+esc(t.l)+'" data-i="'+i+'" data-k="l" onblur="updateTopicEl(this)" placeholder="label" style="width:70px;flex:none">';
-    html+='<input value="'+esc(t.q)+'" data-i="'+i+'" data-k="q" onblur="updateTopicEl(this)" placeholder="search query">';
-    html+='<button class="rm" data-i="'+i+'" onclick="removeTopicEl(this)" title="remove">✕</button>';
-    html+='</div>';
-  });
-  document.getElementById("topic-edit-list").innerHTML=html;
-}
-function updateTopicEl(el){var i=parseInt(el.dataset.i),k=el.dataset.k;if(S.topics[i])S.topics[i][k]=el.value;save();renderPills();}
-function removeTopicEl(el){var i=parseInt(el.dataset.i);S.topics.splice(i,1);save();renderPills();renderTopicEditList();}
-
-function updateTopic(i,key,val){S.topics[i][key]=val;save();renderPills();}
-function removeTopic(i){S.topics.splice(i,1);save();renderPills();renderTopicEditList();}
-function addTopicFromEdit(){
-  var l=document.getElementById('new-topic-label').value.trim();
-  var q=document.getElementById('new-topic-query').value.trim();
-  if(!l||!q){toast('need label and query');return;}
-  S.topics.push({l:l,q:q,on:true});
-  save();renderPills();renderTopicEditList();
-  document.getElementById('new-topic-label').value='';
-  document.getElementById('new-topic-query').value='';
-  toast('topic added');
-}
-
-function switchFeedTab(tab){
-  feedTab=tab;
-  document.getElementById('ftab-inbox').classList.toggle('on',tab==='inbox');
-  document.getElementById('ftab-dismissed').classList.toggle('on',tab==='dismissed');
-  renderFeed();
-}
-
-function clearInbox(){
-  if(!confirm('Clear all inbox papers?'))return;
-  S.inbox=[];save();renderFeed();updateFeedCounts();toast('inbox cleared');
-}
-
-// Broad fetch: derive queries from claim titles + mechanisms
-function broadQueries(){
-  var stopwords=new Set(['and','the','is','are','are','via','in','of','to','a','an','as','by','for','from','that','this','with','its','not','but','can','also','how','what','when','where','which']);
-  var wordFreq={};
-  S.claims.forEach(function(c){
-    var text=(c.title+' '+(c.mechanism||'')).toLowerCase();
-    text.replace(/[^a-z\s-]/g,'').split(/\s+/).forEach(function(w){
-      if(w.length>4&&!stopwords.has(w))wordFreq[w]=(wordFreq[w]||0)+1;
-    });
-  });
-  // top terms by frequency
-  var terms=Object.keys(wordFreq).sort(function(a,b){return wordFreq[b]-wordFreq[a];}).slice(0,30);
-  // build 4 broad queries from term clusters
-  var queries=[
-    {l:'epithelial mechanics broad',q:terms.slice(0,6).join(' ')},
-    {l:'YAP/mechanosensing broad',q:'YAP mechanotransduction '+terms.filter(function(t){return t.includes('yap')||t.includes('hippo')||t.includes('lats')||t.includes('stiff')||t.includes('force');}).slice(0,4).join(' ')},
-    {l:'collective/jamming broad',q:'collective migration jamming '+terms.filter(function(t){return t.includes('cell')||t.includes('tissue')||t.includes('epithe')||t.includes('motil');}).slice(0,3).join(' ')},
-    {l:'active matter broad',q:'active matter tissue '+terms.filter(function(t){return t.includes('actin')||t.includes('myosin')||t.includes('cortex')||t.includes('defect')||t.includes('nematic');}).slice(0,3).join(' ')},
-  ];
-  return queries;
-}
-
-async function fetchPapers(mode){
-  if(!S.inbox)S.inbox=[];
-  var btn=document.getElementById('fetchbtn');
-  btn.disabled=true;btn.textContent='…';
-  document.getElementById('feed-list').innerHTML='<div class="empty">fetching…</div>';
-
-  var queries;
-  if(mode==='broad'){
-    queries=broadQueries();
-    toast('broad fetch: '+queries.length+' derived queries');
-  } else {
-    queries=S.topics.filter(function(t){return t.on;}).slice(0,5);
-  }
-
-  var all=[];
-  for(var i=0;i<queries.length;i++){
-    try{var pm=await fPM(queries[i]);all=all.concat(pm);}catch(e){}
-    try{var bx=await fBX(queries[i]);all=all.concat(bx);}catch(e){}
-  }
-
-  // dedup against existing inbox and library
-  var existingIds=new Set((S.inbox||[]).map(function(p){return p.id;}));
-  var existingDois=new Set((S.library||[]).map(function(p){return(p.doi||'').toLowerCase();}).filter(Boolean));
-  var added=0;
-  all.forEach(function(p){
-    if(existingIds.has(p.id))return;
-    if(p.doi&&existingDois.has(p.doi.toLowerCase())){p.inLibrary=true;}
-    S.inbox.push(p);existingIds.add(p.id);added++;
-  });
-
-  save();renderFeed();updateFeedCounts();updateStats();
-  btn.disabled=false;btn.textContent='⟳ focused';
-  toast(added+' new papers in inbox');
-}
-
-async function fPM(topic){
-  var now=new Date(),ago=new Date(now-14*864e5);
-  var fmt=function(d){return d.toISOString().slice(0,10).replace(/-/g,'/');};
-  var q=encodeURIComponent(topic.q+'[Title/Abstract]');
-  var r=await fetch('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term='+q+'&datetype=pdat&mindate='+fmt(ago)+'&maxdate='+fmt(now)+'&retmax=5&retmode=json');
-  var d=await r.json();var ids=(d.esearchresult&&d.esearchresult.idlist)||[];if(!ids.length)return[];
-  var r2=await fetch('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id='+ids.join(',')+'&retmode=json');
-  var d2=await r2.json();var res=d2.result||{};
-  return ids.map(function(id){
-    var p=res[id]||{};
-    var auths=(p.authors||[]).slice(0,3).map(function(a){return a.name;}).join(', ');
-    if((p.authors||[]).length>3)auths+=' et al.';
-    var lastAuth=(p.authors||[]).slice(-1).map(function(a){return a.name;}).join('');
-    return{id:'pm_'+id,source:'pubmed',topic:topic.l,title:p.title||'',authors:auths,last_author:lastAuth,journal:p.fulljournalname||'',date:p.pubdate||'',doi:(p.elocationid||'').replace('doi: ',''),abstract:'',url:'https://pubmed.ncbi.nlm.nih.gov/'+id+'/',dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
-  });
-}
-
-async function fBX(topic){
-  var now=new Date().toISOString().slice(0,10),ago=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
-  var r=await fetch('https://api.biorxiv.org/details/biorxiv/'+ago+'/'+now+'/0/json');
-  var d=await r.json();var all=d.collection||[];
-  var qw=topic.q.toLowerCase().split(' ').filter(function(w){return w.length>3;});
-  return all.filter(function(p){
-    var tx2=(((p.title||'')+(p.abstract||'')).toLowerCase());
-    return qw.filter(function(w){return tx2.includes(w);}).length>=2;
-  }).slice(0,4).map(function(p){
-    var auths=(p.authors||'').split(';').slice(0,3).join(', ');
-    if((p.authors||'').split(';').length>3)auths+=' et al.';
-    var lastAuth=(p.authors||'').split(';').slice(-1)[0]||'';
-    return{id:'bx_'+p.doi,source:'biorxiv',topic:topic.l,title:p.title||'',authors:auths,last_author:lastAuth.trim(),journal:'bioRxiv',date:p.date||'',doi:p.doi||'',abstract:(p.abstract||''),url:'https://biorxiv.org/content/'+p.doi,dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
-  });
-}
-
-function renderFeed(){
-  var list=document.getElementById('feed-list');
-  if(!S.inbox)S.inbox=[];
-  var papers=S.inbox.filter(function(p){
-    return feedTab==='dismissed'?p.dismissed:!p.dismissed;
-  });
-  updateFeedCounts();
-  if(!papers.length){
-    list.innerHTML='<div class="empty">'+(feedTab==='dismissed'?'no dismissed papers':'inbox empty — fetch to review')+'</div>';
-    return;
-  }
-  var html='';
-  papers.forEach(function(p){
-    var srcCls=p.source==='pubmed'?'src-pm':'src-bx';
-    var srcLabel=p.source==='pubmed'?'PM':'bX';
-    var teaser=p.abstract?(p.abstract.slice(0,90)+(p.abstract.length>90?'...':'')):' no abstract available';
-    var asgnd=p.assignedTo?S.claims.find(function(c){return c.id===p.assignedTo;}):null;
-    var inLib=p.addedToLib||p.inLibrary;
-    var lastA='';
-    if(p.last_author)lastA='<span style="color:#f59e0b"> '+esc(p.last_author)+'</span>';
-    html+='<div class="inbox-card" data-pid="'+esc(p.id)+'">';
-    html+='<div class="ic-top">';
-    html+='<span class="ic-src '+srcCls+'">'+srcLabel+'</span>';
-    html+='<span class="ic-title ic-toggle">'+esc(p.title)+'</span>';
-    html+='</div>';
-    html+='<div class="ic-meta">';
-    html+='<span class="ic-auth">'+esc(p.authors||'')+lastA+'</span>';
-    html+='<span class="ic-topic">'+esc(p.topic||'')+'</span>';
-    html+='<span class="ic-date">'+esc(p.date.slice(0,7))+'</span>';
-    html+='</div>';
-    html+='<div class="ic-teaser ic-toggle">'+esc(teaser)+'</div>';
-    html+='<div class="ic-abstract">'+esc(p.abstract||'Abstract not available.')+'</div>';
-    if(asgnd)html+='<div style="font-size:9px;color:var(--purple);font-family:var(--mono);margin-bottom:5px;">→ '+esc(asgnd.title.slice(0,40))+'...</div>';
-    if(inLib)html+='<div class="ic-added">✓ in library</div>';
-    html+='<div class="ic-actions">';
-    if(feedTab==='dismissed'){
-      html+='<span class="ica ic-undismiss">restore</span>';
-    } else {
-      if(inLib){
-        html+='<span class="ica" style="opacity:.4">in library</span>';
-      } else {
-        html+='<span class="ica add ic-addlib">+ library</span>';
-      }
-      html+='<span class="ica asgn ic-assign">assign</span>';
-    }
-    html+='<span class="ica ic-open">open ↗</span>';
-    if(feedTab!=='dismissed')html+='<span class="ica dis ic-dismiss">dismiss</span>';
-    html+='</div></div>';
-  });
-  list.innerHTML=html;
-  // attach events via delegation
-  list.onclick=function(e){
-    var card=e.target.closest('.inbox-card');
-    if(!card)return;
-    var pid=card.dataset.pid;
-    if(e.target.classList.contains('ic-toggle')){toggleAbstract(card);}
-    else if(e.target.classList.contains('ic-addlib')){addInboxToLib(pid);}
-    else if(e.target.classList.contains('ic-assign')){openAssignInbox(pid);}
-    else if(e.target.classList.contains('ic-dismiss')){dismiss(pid);}
-    else if(e.target.classList.contains('ic-undismiss')){undismiss(pid);}
-    else if(e.target.classList.contains('ic-open')){
-      var p=S.inbox.find(function(x){return x.id===pid;});
-      if(p)window.open(p.url,'_blank');
-    }
-  };
-}
-
-function toggleAbstract(card){
-  var abs=card.querySelector('.ic-abstract');
-  card.classList.toggle('expanded');
-  if(abs)abs.classList.toggle('open');
-}
-
-function dismiss(id){
-  var p=(S.inbox||[]).find(function(x){return x.id===id;});
-  if(!p)return;p.dismissed=true;save();renderFeed();
-}
-
-function undismiss(id){
-  var p=(S.inbox||[]).find(function(x){return x.id===id;});
-  if(!p)return;p.dismissed=false;save();renderFeed();
-}
-
-function addInboxToLib(id){
-  var p=(S.inbox||[]).find(function(x){return x.id===id;});if(!p)return;
-  if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
-  if(!S.library.find(function(x){return x.id===id;})){
-    var auths=p.authors||'';
-    var lastA=p.last_author||auths.split(',').slice(-1)[0]||'';
-    S.library.push({
-      id:id,title:p.title,authors:auths,authors_short:auths.slice(0,35),
-      first_author:auths.split(',')[0]||'',last_author:lastA,last_author_short:lastA.slice(0,20),
-      year:(p.date||'').slice(0,4),journal:p.journal,journal_short:(p.journal||'').slice(0,20),
-      doi:p.doi||'',abstract:p.abstract||'',tags:[],claims:[],imported:new Date().toISOString()
-    });
-  }
-  p.addedToLib=true;
-  save();updateStats();renderFeed();toast('added to library');
-}
-
-function openAssignInbox(id){
-  assignPaper={id:id};
-  var p=(S.inbox||[]).find(function(x){return x.id===id;});
-  if(p)assignPaper=Object.assign({},p);
-  assignType='for';
-  modal('<h3>assign to claim</h3>'
-    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+esc(assignPaper.title)+'</div>'
-    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(this.dataset.t,this)">supports</button><button class="atbtn" data-t="against" onclick="setAt(this.dataset.t,this)">contradicts</button></div>'
-    +'<div id="copts">'+renderCopts()+'</div>'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>');
-}
-
-// ── ASSIGN ──
-function openAssign(pid){
-  assignPaper=(S.inbox||[]).find(function(p){return p.id===pid;});if(!assignPaper)return;
-  assignType='for';
-  modal('<h3>assign to claim</h3>'
-    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">'+esc(assignPaper.title)+'</div>'
-    +'<div class="atype"><button class="atbtn sel" data-t="for" onclick="setAt(this.dataset.t,this)">supports</button><button class="atbtn" data-t="against" onclick="setAt(this.dataset.t,this)">contradicts</button></div>'
-    +'<div id="copts">'+renderCopts()+'</div>'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>');
-}
-function setAt(t,btn){assignType=t;document.querySelectorAll('.atbtn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');document.getElementById('copts').innerHTML=renderCopts();}
-function renderCopts(){return S.claims.map(function(c){return'<div class="coption '+assignType+'" onclick="doAssign(\''+c.id+'\')" style="cursor:pointer"><div class="cot">'+esc(c.title.slice(0,70))+'…</div><div class="cos">'+c.strand+' · '+c.conf+'</div></div>';}).join('');}
 function doAssign(cid){
-  if(!assignPaper)return;var c=S.claims.find(function(x){return x.id===cid;});if(!c)return;
-  // update in inbox
+  if(!assignPaper)return;
+  var c=S.claims.find(function(x){return x.id===cid;});if(!c)return;
   var ip=(S.inbox||[]).find(function(x){return x.id===assignPaper.id;});
   if(ip)ip.assignedTo=cid;
   var cite=(assignPaper.authors||'?').split(',')[0]+' '+(assignPaper.date||'').slice(0,4);
   if(assignType==='for')c.forPapers=(c.forPapers?c.forPapers+'; ':'')+cite;
   else c.againstPapers=(c.againstPapers?c.againstPapers+'; ':'')+cite;
-  save();closeModal();renderFeed();renderMap();if(selId===cid)renderRight();toast('assigned to claim');
-}
-
-// ── MODALS ──
-function openNewClaim(){
-  modal('<h3>new claim</h3>'
-    +'<label>claim *</label><textarea id="m-t" rows="3" placeholder="one sentence assertion about your field"></textarea>'
-    +'<label>strand</label><select id="m-s"><option value="jam">jamming</option><option value="col">migration</option><option value="yap">YAP/packing</option><option value="nuc">nematic</option></select>'
-    +'<label>confidence</label><select id="m-c"><option value="established">established</option><option value="likely">likely</option><option value="contested">contested</option><option value="speculation">speculation</option><option value="yours">yours</option></select>'
-    +'<label>mechanism</label><textarea id="m-m" rows="2" placeholder="how does this work?"></textarea>'
-    +'<label>supporting papers</label><input id="m-f" type="text" placeholder="Author Year; Author Year">'
-    +'<label>contradicting papers</label><input id="m-a" type="text" placeholder="Author Year; Author Year">'
-    +'<label>open question</label><input id="m-o" type="text" placeholder="what would change this claim?">'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveNewClaim()">add</button></div>');
-}
-function saveNewClaim(){
-  var t=v('m-t');if(!t){toast('claim required');return;}
-  var c={id:'c_'+Date.now(),strand:v('m-s'),conf:v('m-c'),title:t,mechanism:v('m-m'),forPapers:v('m-f'),againstPapers:v('m-a'),open:v('m-o'),leads:[],x:80+Math.random()*500,y:80+Math.random()*350};
-  S.claims.push(c);save();closeModal();updateStats();selId=c.id;renderMap();renderRight();toast('claim added');
-}
-function openEdit(id){
-  var c=S.claims.find(function(x){return x.id===id;});if(!c)return;
-  var so=['jam','col','yap','nuc'].map(function(s){return'<option value="'+s+'"'+(c.strand===s?' selected':'')+'>'+s+'</option>';}).join('');
-  var co=['established','likely','contested','speculation','yours'].map(function(cv){return'<option value="'+cv+'"'+(c.conf===cv?' selected':'')+'>'+cv+'</option>';}).join('');
-  modal('<h3>edit claim</h3>'
-    +'<label>claim</label><textarea id="e-t" rows="3">'+esc(c.title)+'</textarea>'
-    +'<label>strand</label><select id="e-s">'+so+'</select>'
-    +'<label>confidence</label><select id="e-c">'+co+'</select>'
-    +'<label>mechanism</label><textarea id="e-m" rows="2">'+esc(c.mechanism||'')+'</textarea>'
-    +'<label>supporting</label><textarea id="e-f" rows="2">'+esc(c.forPapers||'')+'</textarea>'
-    +'<label>against</label><textarea id="e-a" rows="2">'+esc(c.againstPapers||'')+'</textarea>'
-    +'<label>open question</label><input id="e-o" type="text" value="'+esc(c.open||'')+'">'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveEdit(\''+id+'\')">save</button></div>');
-}
-function saveEdit(id){
-  var c=S.claims.find(function(x){return x.id===id;});if(!c)return;
-  c.title=v('e-t');c.strand=v('e-s');c.conf=v('e-c');c.mechanism=v('e-m');c.forPapers=v('e-f');c.againstPapers=v('e-a');c.open=v('e-o');
-  save();closeModal();renderMap();renderRight();toast('saved');
-}
-function openNewProject(){
-  var co=S.claims.map(function(c){return'<option value="'+c.id+'">'+c.title.slice(0,55)+'…</option>';}).join('');
-  modal('<h3>new project</h3>'
-    +'<label>name *</label><input id="p-n" type="text" placeholder="e.g. Packing fraction × YAP in 3D">'
-    +'<label>status</label><select id="p-s"><option value="planning">planning</option><option value="active">active</option><option value="paused">paused</option><option value="done">done</option></select>'
-    +'<label>hypothesis</label><input id="p-h" type="text" placeholder="one-sentence hypothesis">'
-    +'<label>link to claim</label><select id="p-c"><option value="">— none —</option>'+co+'</select>'
-    +'<label>initial notes</label><textarea id="p-no" rows="3"></textarea>'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveNewProject()">create</button></div>');
-}
-function saveNewProject(){
-  var nm=v('p-n');if(!nm){toast('name required');return;}
-  var cid=v('p-c');
-  S.projects.push({id:'pj_'+Date.now(),name:nm,status:v('p-s'),hypothesis:v('p-h'),linkedClaims:cid?[cid]:[],notes:v('p-no'),created:new Date().toISOString()});
-  save();closeModal();updateStats();rtab('projects');toast('project created');
+  save();closeModal();renderFeed();renderMap();
+  if(selId===cid)renderRight();
+  toast('assigned');
 }
 
 // ── CTX ──
@@ -1394,7 +1371,383 @@ function v(id){var el=document.getElementById(id);return el?el.value.trim():'';}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
 
+// ── FEED SETTINGS ──
+function toggleFeedSettings(){
+  var panel=document.getElementById('feed-settings-panel');
+  var btn=document.getElementById('feed-settings-btn');
+  var isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  btn.style.color=isOpen?'var(--text3)':'var(--amber)';
+  if(!isOpen)renderFeedSettings();
+}
+// ── FEED ──
+function renderPills(){
+  var el=document.getElementById('tpills');
+  if(!el)return;
+  el.innerHTML=S.topics.map(function(t,i){
+    return '<span class="pill'+(t.on?' on':'')+'" data-i="'+i+'" onclick="toggleT(parseInt(this.dataset.i))">'+esc(t.l)+'</span>';
+  }).join('');
+}
+function toggleT(i){S.topics[i].on=!S.topics[i].on;save();renderPills();}
+
+function switchFeedTab(tab){
+  feedTab=tab;
+  document.getElementById('ftab-inbox').classList.toggle('on',tab==='inbox');
+  document.getElementById('ftab-dismissed').classList.toggle('on',tab==='dismissed');
+  renderFeed();
+}
+
+function updateFeedCounts(){
+  var inbox=(S.inbox||[]).filter(function(p){return!p.dismissed;});
+  var dis=(S.inbox||[]).filter(function(p){return p.dismissed;});
+  var ic=document.getElementById('inbox-cnt');
+  var dc=document.getElementById('dis-cnt');
+  if(ic)ic.textContent='('+inbox.length+')';
+  if(dc)dc.textContent='('+dis.length+')';
+}
+
+function clearInbox(){
+  if(!confirm('Clear all inbox papers?'))return;
+  S.inbox=[];save();renderFeed();updateFeedCounts();toast('inbox cleared');
+}
+
+function broadQueries(){
+  var stopwords=new Set(['and','the','is','are','via','in','of','to','a','an','as','by','for','from','that','this','with','its','not','but','can','also','how','what','when','where','which']);
+  var wordFreq={};
+  S.claims.forEach(function(c){
+    var text=(c.title+' '+(c.mechanism||'')).toLowerCase();
+    text.replace(/[^a-z\s]/g,'').split(/\s+/).forEach(function(w){
+      if(w.length>4&&!stopwords.has(w))wordFreq[w]=(wordFreq[w]||0)+1;
+    });
+  });
+  var terms=Object.keys(wordFreq).sort(function(a,b){return wordFreq[b]-wordFreq[a];}).slice(0,30);
+  return[
+    {l:'epithelial broad',q:terms.slice(0,6).join(' ')},
+    {l:'YAP broad',q:'YAP mechanotransduction '+terms.slice(0,3).join(' ')},
+    {l:'collective broad',q:'collective migration jamming '+terms.slice(0,3).join(' ')},
+    {l:'active matter broad',q:'active matter tissue nematic defect'},
+  ];
+}
+
+function renderFeed(){
+  var list=document.getElementById('feed-list');
+  if(!list)return;
+  if(!S.inbox)S.inbox=[];
+  var papers=S.inbox.filter(function(p){return feedTab==='dismissed'?p.dismissed:!p.dismissed;});
+  updateFeedCounts();
+  if(!papers.length){
+    list.innerHTML='<div class="empty">'+(feedTab==='dismissed'?'no dismissed papers':'inbox empty — hit fetch to load papers')+'</div>';
+    return;
+  }
+  var html='';
+  papers.forEach(function(p){
+    var srcCls=p.source==='pubmed'?'src-pm':'src-bx';
+    var srcLabel=p.source==='pubmed'?'PM':'bX';
+    var teaser=p.abstract?(p.abstract.slice(0,90)+(p.abstract.length>90?'...':'')):' no abstract available';
+    var asgnd=p.assignedTo?S.claims.find(function(c){return c.id===p.assignedTo;}):null;
+    var inLib=p.addedToLib||p.inLibrary;
+    html+='<div class="inbox-card" data-pid="'+esc(p.id)+'">';
+    html+='<div class="ic-top"><span class="ic-src '+srcCls+'">'+srcLabel+'</span>';
+    html+='<span class="ic-title ic-toggle">'+esc(p.title)+'</span></div>';
+    html+='<div class="ic-meta"><span class="ic-auth">'+esc(p.authors||'')+'</span>';
+    if(p.last_author)html+=' <span style="color:var(--amber);font-size:10px">'+esc(p.last_author)+'</span>';
+    html+='<span class="ic-topic">'+esc(p.topic||'')+'</span>';
+    html+='<span class="ic-date">'+esc(p.date.slice(0,7))+'</span></div>';
+    html+='<div class="ic-teaser ic-toggle">'+esc(teaser)+'</div>';
+    html+='<div class="ic-abstract">'+esc(p.abstract||'Abstract not available.')+'</div>';
+    if(asgnd)html+='<div style="font-size:9px;color:var(--purple);font-family:var(--mono);margin-bottom:5px;">→ '+esc(asgnd.title.slice(0,40))+'...</div>';
+    if(inLib)html+='<div class="ic-added">✓ in library</div>';
+    html+='<div class="ic-actions">';
+    if(feedTab==='dismissed'){
+      html+='<span class="ica ic-undismiss">restore</span>';
+    } else {
+      html+=inLib?'<span class="ica" style="opacity:.4">in library</span>':'<span class="ica add ic-addlib">+ library</span>';
+      html+='<span class="ica asgn ic-assign">assign</span>';
+    }
+    html+='<span class="ica ic-open">open ↗</span>';
+    if(feedTab!=='dismissed')html+='<span class="ica dis ic-dismiss">dismiss</span>';
+    html+='</div></div>';
+  });
+  list.innerHTML=html;
+  list.onclick=function(e){
+    var card=e.target.closest('.inbox-card');if(!card)return;
+    var pid=card.dataset.pid;
+    var p=S.inbox.find(function(x){return x.id===pid;});
+    if(e.target.classList.contains('ic-toggle'))toggleAbstract(card);
+    else if(e.target.classList.contains('ic-addlib'))addInboxToLib(pid);
+    else if(e.target.classList.contains('ic-assign'))openAssignInbox(pid);
+    else if(e.target.classList.contains('ic-dismiss'))dismiss(pid);
+    else if(e.target.classList.contains('ic-undismiss'))undismiss(pid);
+    else if(e.target.classList.contains('ic-open')&&p)window.open(p.url,'_blank');
+  };
+}
+function toggleAbstract(card){
+  var abs=card.querySelector('.ic-abstract');
+  card.classList.toggle('expanded');
+  if(abs)abs.classList.toggle('open');
+}
+function dismiss(id){
+  var p=(S.inbox||[]).find(function(x){return x.id===id;});
+  if(p){p.dismissed=true;save();renderFeed();}
+}
+function undismiss(id){
+  var p=(S.inbox||[]).find(function(x){return x.id===id;});
+  if(p){p.dismissed=false;save();renderFeed();}
+}
+function addInboxToLib(id){
+  var p=(S.inbox||[]).find(function(x){return x.id===id;});if(!p)return;
+  if(!S.library)S.library=[];
+  if(!S.library.find(function(x){return x.id===id;})){
+    S.library.push({
+      id:id,title:p.title,authors:p.authors||'',authors_short:(p.authors||'').slice(0,35),
+      first_author:(p.authors||'').split(',')[0]||'',
+      last_author:p.last_author||'',last_author_short:(p.last_author||'').slice(0,20),
+      year:(p.date||'').slice(0,4),journal:p.journal||'',journal_short:(p.journal||'').slice(0,20),
+      doi:p.doi||'',abstract:p.abstract||'',tags:[],claims:[],
+      imported:new Date().toISOString()
+    });
+  }
+  p.addedToLib=true;
+  save();updateStats();renderFeed();toast('added to library');
+}
+function setSetting(key,val){
+  S.settings[key]=parseFloat(val);save();renderMap();
+}
+function toggleStrand(s){
+  if(!S.settings.visStrands)S.settings.visStrands={jam:true,col:true,yap:true,nuc:true};
+  S.settings.visStrands[s]=!S.settings.visStrands[s];
+  save();renderMap();
+}
+function toggleTopicsEdit(){
+  var el=document.getElementById('topics-edit');
+  if(!el)return;
+  el.classList.toggle('open');
+  if(el.classList.contains('open'))renderTopicEditList();
+  var btn=document.getElementById('edit-topics-btn');
+  if(btn)btn.style.color=el.classList.contains('open')?'var(--amber)':'var(--text3)';
+}
+function renderTopicEditList(){
+  var el=document.getElementById('topic-edit-list');if(!el)return;
+  var html='';
+  S.topics.forEach(function(t,i){
+    html+='<div class="topic-edit-row">';
+    html+='<input value="'+esc(t.l)+'" data-i="'+i+'" data-k="l" onblur="updateTopicEl(this)" placeholder="label" style="width:70px;flex:none">';
+    html+='<input value="'+esc(t.q)+'" data-i="'+i+'" data-k="q" onblur="updateTopicEl(this)" placeholder="search query">';
+    html+='<button class="rm" data-i="'+i+'" onclick="removeTopicEl(this)">'+String.fromCharCode(10005)+'</button>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+function updateTopicEl(el){var i=parseInt(el.dataset.i),k=el.dataset.k;if(S.topics[i])S.topics[i][k]=el.value;save();renderPills();}
+function removeTopicEl(el){var i=parseInt(el.dataset.i);S.topics.splice(i,1);save();renderPills();renderTopicEditList();}
+function addTopicFromEdit(){
+  var l=document.getElementById('new-topic-label');
+  var q=document.getElementById('new-topic-query');
+  if(!l||!q||!l.value.trim()||!q.value.trim()){toast('need label and query');return;}
+  S.topics.push({l:l.value.trim(),q:q.value.trim(),on:true});
+  save();renderPills();renderTopicEditList();
+  l.value='';q.value='';toast('topic added');
+}
+
+
+async function fetchPapers(mode){
+  if(!S.inbox)S.inbox=[];
+  var btn=document.getElementById('fetchbtn');
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  document.getElementById('feed-list').innerHTML='<div class="empty">fetching...</div>';
+  var queries=mode==='broad'?broadQueries():S.topics.filter(function(t){return t.on;}).slice(0,5);
+  var all=[];
+  for(var i=0;i<queries.length;i++){
+    try{var pm=await fPM(queries[i]);all=all.concat(pm);}catch(e){}
+    try{var bx=await fBX(queries[i]);all=all.concat(bx);}catch(e){}
+  }
+  var existingIds=new Set((S.inbox||[]).map(function(p){return p.id;}));
+  var existingDois=new Set((S.library||[]).map(function(p){return(p.doi||'').toLowerCase();}).filter(Boolean));
+  var added=0;
+  all.forEach(function(p){
+    if(existingIds.has(p.id))return;
+    if(p.doi&&existingDois.has(p.doi.toLowerCase()))p.inLibrary=true;
+    S.inbox.push(p);existingIds.add(p.id);added++;
+  });
+  save();renderFeed();updateFeedCounts();updateStats();
+  if(btn){btn.disabled=false;btn.textContent='⟳ focused';}
+  toast(added+' new papers');
+}
+
+async function fPM(topic){
+  var now=new Date(),ago=new Date(now-14*864e5);
+  var fmt=function(d){return d.toISOString().slice(0,10).replace(/-/g,'/');};
+  var q=encodeURIComponent(topic.q+'[Title/Abstract]');
+  var r=await fetch('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term='+q+'&datetype=pdat&mindate='+fmt(ago)+'&maxdate='+fmt(now)+'&retmax=5&retmode=json');
+  var d=await r.json();var ids=(d.esearchresult&&d.esearchresult.idlist)||[];if(!ids.length)return[];
+  var r2=await fetch('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id='+ids.join(',')+'&retmode=json');
+  var d2=await r2.json();var res=d2.result||{};
+  return ids.map(function(id){
+    var p=res[id]||{};
+    var au=(p.authors||[]).slice(0,3).map(function(a){return a.name;}).join(', ');
+    if((p.authors||[]).length>3)au+=' et al.';
+    var lastA=(p.authors||[]).slice(-1).map(function(a){return a.name;}).join('');
+    return{id:'pm_'+id,source:'pubmed',topic:topic.l,title:p.title||'',authors:au,last_author:lastA,journal:p.fulljournalname||'',date:p.pubdate||'',doi:(p.elocationid||'').replace('doi: ',''),abstract:'',url:'https://pubmed.ncbi.nlm.nih.gov/'+id+'/',dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
+  });
+}
+
+async function fBX(topic){
+  var now=new Date().toISOString().slice(0,10),ago=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  var r=await fetch('https://api.biorxiv.org/details/biorxiv/'+ago+'/'+now+'/0/json');
+  var d=await r.json();var all=d.collection||[];
+  var qw=topic.q.toLowerCase().split(' ').filter(function(w){return w.length>3;});
+  return all.filter(function(p){
+    var tx=((p.title||'')+(p.abstract||'')).toLowerCase();
+    return qw.filter(function(w){return tx.includes(w);}).length>=2;
+  }).slice(0,4).map(function(p){
+    var au=(p.authors||'').split(';').slice(0,3).join(', ');
+    if((p.authors||'').split(';').length>3)au+=' et al.';
+    var lastA=(p.authors||'').split(';').slice(-1)[0]||'';
+    return{id:'bx_'+p.doi,source:'biorxiv',topic:topic.l,title:p.title||'',authors:au,last_author:lastA.trim(),journal:'bioRxiv',date:p.date||'',doi:p.doi||'',abstract:p.abstract||'',url:'https://biorxiv.org/content/'+p.doi,dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
+  });
+}
+
+// ── NEW CLAIM / PROJECT MODALS ──
+function openNewClaim(){
+  modal('<h3>new claim</h3>'
+    +'<label>claim *</label><textarea id="m-t" rows="3" placeholder="one sentence assertion"></textarea>'
+    +'<label>strand</label><select id="m-s"><option value="jam">jamming</option><option value="col">migration</option><option value="yap">YAP/packing</option><option value="nuc">nematic</option></select>'
+    +'<label>confidence</label><select id="m-c"><option value="established">established</option><option value="likely">likely</option><option value="contested">contested</option><option value="speculation">speculation</option><option value="yours">yours</option></select>'
+    +'<label>mechanism</label><textarea id="m-m" rows="2"></textarea>'
+    +'<label>supporting papers</label><input id="m-f" type="text">'
+    +'<label>contradicting papers</label><input id="m-a" type="text">'
+    +'<label>open question</label><input id="m-o" type="text">'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveNewClaim()">add</button></div>');
+}
+function saveNewClaim(){
+  var t=v('m-t');if(!t){toast('claim required');return;}
+  var c={id:'c_'+Date.now(),strand:v('m-s'),conf:v('m-c'),title:t,mechanism:v('m-m'),forPapers:v('m-f'),againstPapers:v('m-a'),open:v('m-o'),leads:[],x:80+Math.random()*500,y:80+Math.random()*350};
+  S.claims.push(c);save();closeModal();updateStats();selId=c.id;renderMap();renderRight();toast('claim added');
+}
+function openNewProject(){
+  var co=S.claims.map(function(c){return'<option value="'+c.id+'">'+esc(c.title.slice(0,55))+'...</option>';}).join('');
+  modal('<h3>new project</h3>'
+    +'<label>name *</label><input id="p-n" type="text">'
+    +'<label>status</label><select id="p-s"><option value="planning">planning</option><option value="active">active</option><option value="paused">paused</option><option value="done">done</option></select>'
+    +'<label>hypothesis</label><input id="p-h" type="text">'
+    +'<label>link to claim</label><select id="p-c"><option value="">none</option>'+co+'</select>'
+    +'<label>notes</label><textarea id="p-no" rows="3"></textarea>'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveNewProject()">create</button></div>');
+}
+function saveNewProject(){
+  var nm=v('p-n');if(!nm){toast('name required');return;}
+  var cid=v('p-c');
+  S.projects.push({id:'pj_'+Date.now(),name:nm,status:v('p-s'),hypothesis:v('p-h'),linkedClaims:cid?[cid]:[],notes:v('p-no'),created:new Date().toISOString()});
+  save();closeModal();updateStats();rtab('projects');toast('project created');
+}
+
+function renderFeedSettings(){
+  var panel=document.getElementById('feed-settings-panel');
+  if(!panel)return;
+  panel.innerHTML='';
+  var vs=S.settings.visStrands||{jam:true,col:true,yap:true,nuc:true};
+
+  function mkLabel(txt,sub){
+    var d=document.createElement('div');
+    var t=document.createElement('div');t.className='slabel';t.textContent=txt;d.appendChild(t);
+    if(sub){var s=document.createElement('div');s.className='ssub';s.textContent=sub;d.appendChild(s);}
+    return d;
+  }
+  function mkRow(labelEl,controlEl){
+    var row=document.createElement('div');row.className='srow';
+    row.appendChild(labelEl);row.appendChild(controlEl);panel.appendChild(row);
+  }
+  function mkSlider(key,min,max,val){
+    var sl=document.createElement('input');
+    sl.type='range';sl.className='sslider';
+    sl.min=min;sl.max=max;sl.value=val;
+    sl.oninput=function(){setSetting(key,parseFloat(sl.value)/100);};
+    return sl;
+  }
+  function mkTitle(txt){
+    var d=document.createElement('div');d.className='sgrouptitle';
+    d.style.marginBottom='8px';d.textContent=txt;panel.appendChild(d);
+  }
+
+  // Map section
+  mkTitle('map');
+  mkRow(mkLabel('zoom speed','slower ← → faster'),
+        mkSlider('zoomSpeed',1,15,Math.round((S.settings.zoomSpeed||0.04)*100)));
+  mkRow(mkLabel('node size'),
+        mkSlider('nodeSize',60,150,Math.round((S.settings.nodeSize||1)*100)));
+  mkRow(mkLabel('edge opacity'),
+        mkSlider('edgeOpacity',5,80,Math.round((S.settings.edgeOpacity||0.25)*100)));
+
+  // Strands section
+  var stTitle=document.createElement('div');stTitle.className='sgrouptitle';
+  stTitle.style.cssText='margin:10px 0 8px';stTitle.textContent='strands';panel.appendChild(stTitle);
+  var stWrap=document.createElement('div');stWrap.className='strand-toggle';
+  [{k:'jam',l:'jamming'},{k:'col',l:'migration'},{k:'yap',l:'YAP'},{k:'nuc',l:'nematic'}].forEach(function(s){
+    var sp=document.createElement('span');
+    sp.className='st'+(vs[s.k]?' on '+s.k:'')+' '+s.k;
+    sp.textContent=s.l;
+    sp.onclick=(function(key){return function(){toggleStrand(key);renderFeedSettings();};})(s.k);
+    stWrap.appendChild(sp);
+  });
+  panel.appendChild(stWrap);
+
+  // Data section
+  var dtTitle=document.createElement('div');dtTitle.className='sgrouptitle';
+  dtTitle.style.cssText='margin:10px 0 8px';dtTitle.textContent='data';panel.appendChild(dtTitle);
+  var dtRow=document.createElement('div');dtRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+
+  function mkBtn(txt,fn,style){
+    var b=document.createElement('button');b.className='lbtn';b.textContent=txt;
+    if(style)b.style.cssText=style;b.onclick=fn;return b;
+  }
+  dtRow.appendChild(mkBtn(String.fromCharCode(8595)+' export',exportData));
+  dtRow.appendChild(mkBtn(String.fromCharCode(8593)+' import',triggerImport));
+
+  var fileInp=document.createElement('input');
+  fileInp.type='file';fileInp.id='import-file-input';fileInp.accept='.json';
+  fileInp.style.display='none';
+  fileInp.onchange=function(){importData(fileInp);};
+  dtRow.appendChild(fileInp);
+
+  dtRow.appendChild(mkBtn('reset',resetData,'color:var(--red);border-color:rgba(239,68,68,.3)'));
+  panel.appendChild(dtRow);
+}
+
+
+// ── RESIZE ──
+function initResize(){
+  function makeDraggable(divId, panelId, side){
+    var div=document.getElementById(divId);
+    var panel=document.getElementById(panelId);
+    if(!div||!panel)return;
+    var dragging=false,startX=0,startW=0;
+    div.addEventListener('mousedown',function(e){
+      dragging=true;startX=e.clientX;
+      startW=panel.getBoundingClientRect().width;
+      div.classList.add('dragging');
+      document.body.style.cursor='col-resize';
+      document.body.style.userSelect='none';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove',function(e){
+      if(!dragging)return;
+      var dx=e.clientX-startX;
+      var newW=side==='left'?startW+dx:startW-dx;
+      newW=Math.max(180,Math.min(500,newW));
+      panel.style.width=newW+'px';
+    });
+    window.addEventListener('mouseup',function(){
+      if(!dragging)return;
+      dragging=false;div.classList.remove('dragging');
+      document.body.style.cursor='';document.body.style.userSelect='';
+    });
+  }
+  makeDraggable('div-left','feed','left');
+  makeDraggable('div-right','right','right');
+}
+
 init();
+initResize();
 </script>
 </body>
 </html>
