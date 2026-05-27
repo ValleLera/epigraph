@@ -416,15 +416,18 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <button class="mzbtn" onclick="autoLayout()" title="auto layout" style="font-size:11px">⟳</button>
   </div>
   <div id="mapleg">
+    <div class="leg-section">strands</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-jam)"></div>jamming</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-col)"></div>migration</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-yap)"></div>YAP</div>
     <div class="legrow"><div class="legdot" style="background:var(--s-nuc)"></div>nematic</div>
-    <div style="height:5px"></div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-est)"></div>established</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-lik)"></div>likely</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-con)"></div>contested</div>
-    <div class="legrow"><div class="legdot" style="background:var(--c-yrs)"></div>yours</div>
+    <div style="height:6px"></div>
+    <div class="leg-section">confidence</div>
+    <div class="legrow"><div class="legdot" style="background:#f59e0b"></div>established</div>
+    <div class="legrow"><div class="legdot" style="background:#f59e0b;opacity:0.5"></div>likely</div>
+    <div class="legrow"><div class="legdot" style="background:transparent;border:1.5px solid #f59e0b;width:7px;height:7px"></div>contested</div>
+    <div class="legrow"><div class="legdot" style="background:transparent;border:1.5px solid #f59e0b;opacity:0.35;width:7px;height:7px"></div>speculation</div>
+    <div class="legrow"><div style="font-size:11px;color:#f59e0b;margin-right:2px;line-height:1">&#9733;</div>yours</div>
   </div>
   <div id="maphint">scroll to zoom · drag to pan · right-click nodes for options · press F to fit</div>
 </div>
@@ -1106,12 +1109,14 @@ function saveAddPaper(){
 // ── PROJECTS ──
 function renderProjects(){
   var body=document.getElementById('rbody');
+  var active=S.projects.filter(function(p){return!p.archived;});
+  var archived=S.projects.filter(function(p){return p.archived;});
   var html='<button class="newbtn" onclick="openNewProject()">+ new project</button>';
-  if(!S.projects.length){
+  if(!active.length&&!archived.length){
     html+='<div class="empty">no projects yet<br><span style="font-size:10px;opacity:.6">click + to create one</span></div>';
     body.innerHTML=html;return;
   }
-  S.projects.forEach(function(p){
+  active.forEach(function(p){
     var dotColor=p.status==='active'?'var(--amber)':p.status==='done'?'var(--green)':'var(--text3)';
     var links=(p.linkedClaims||[]).map(function(cid){
       var cl=S.claims.find(function(x){return x.id===cid;});
@@ -1125,6 +1130,19 @@ function renderProjects(){
       +(links?'<div style="margin-top:4px">'+links+'</div>':'')
       +'</div>';
   });
+  if(archived.length){
+    html+='<div class="slbl" style="margin:12px 0 6px;opacity:.5">archive ('+archived.length+')</div>';
+    archived.forEach(function(p){
+      html+='<div class="pj" style="opacity:.5;border-style:dashed">'
+        +'<div class="pjhd"><div class="pjdot" style="background:var(--text3)"></div>'
+        +'<div class="pjname">'+esc(p.name)+'</div>'
+        +'<span class="pjst">archived</span></div>'
+        +'<div style="display:flex;gap:6px;margin-top:6px">'
+        +'<button class="lbtn" data-pid="'+esc(p.id)+'" onclick="event.stopPropagation();restoreProject(this.dataset.pid)">restore</button>'
+        +'<button class="lbtn" style="color:var(--red);border-color:rgba(239,68,68,.3)" data-pid="'+esc(p.id)+'" onclick="event.stopPropagation();permanentDeleteProject(this.dataset.pid)">delete permanently</button>'
+        +'</div></div>';
+    });
+  }
   body.innerHTML=html;
 }
 
@@ -1220,17 +1238,33 @@ function openProject(pid){
   claimWrap.appendChild(claimSel);
   bdy.appendChild(claimWrap);
 
-  // Notes
+  // Quick notes (existing)
   var notesWrap=document.createElement('div');
-  notesWrap.style.cssText='flex:1;display:flex;flex-direction:column';
-  var notesLbl=document.createElement('div');notesLbl.className='pj-field-label';notesLbl.textContent='experimental notes';
+  notesWrap.style.cssText='display:flex;flex-direction:column';
+  var notesLbl=document.createElement('div');notesLbl.className='pj-field-label';notesLbl.textContent='quick notes';
   var notesArea=document.createElement('textarea');
   notesArea.className='pj-big-notes';
-  notesArea.placeholder='write anything here — protocol notes, observations, results, ideas, next steps...';
+  notesArea.style.minHeight='80px';
+  notesArea.placeholder='quick notes, next steps...';
   notesArea.value=p.notes||'';
   notesArea.onblur=function(){savePjField(pid,'notes',notesArea.value);};
   notesWrap.appendChild(notesLbl);notesWrap.appendChild(notesArea);
   bdy.appendChild(notesWrap);
+
+  // Log entries
+  var logSection=document.createElement('div');
+  logSection.style.cssText='margin-top:12px;flex:1;display:flex;flex-direction:column';
+  var logHeader=document.createElement('div');
+  logHeader.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
+  var logLbl=document.createElement('div');logLbl.className='pj-field-label';logLbl.style.margin='0';logLbl.textContent='log entries';
+  var addLogBtn=document.createElement('button');addLogBtn.className='lbtn';addLogBtn.style.fontSize='10px';addLogBtn.textContent='+ new entry';
+  addLogBtn.onclick=function(){addProjectLog(pid,bdy);};
+  logHeader.appendChild(logLbl);logHeader.appendChild(addLogBtn);
+  logSection.appendChild(logHeader);
+  var logList=document.createElement('div');logList.id='proj-log-list-'+pid;
+  renderProjectLogs(p,logList);
+  logSection.appendChild(logList);
+  bdy.appendChild(logSection);
 
   // Delete button
   var footer=document.createElement('div');
@@ -1238,7 +1272,7 @@ function openProject(pid){
   var delBtn=document.createElement('button');
   delBtn.className='act';
   delBtn.style.cssText='color:var(--red);border-color:rgba(239,68,68,.3)';
-  delBtn.textContent='delete project';
+  delBtn.textContent='archive project';
   delBtn.onclick=function(){deleteProject(pid);};
   footer.appendChild(delBtn);
   bdy.appendChild(footer);
@@ -1264,9 +1298,18 @@ function unlinkClaim(pid,cid){
   save();openProject(pid);
 }
 function deleteProject(pid){
-  if(!confirm('Delete this project?'))return;
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  p.archived=true;p.archivedDate=new Date().toISOString();
+  save();updateStats();rtab('projects');toast('project moved to archive');
+}
+function restoreProject(pid){
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  p.archived=false;save();rtab('projects');toast('project restored');
+}
+function permanentDeleteProject(pid){
+  if(!confirm('Permanently delete? This cannot be undone.'))return;
   S.projects=S.projects.filter(function(x){return x.id!==pid;});
-  save();updateStats();rtab('projects');toast('project deleted');
+  save();updateStats();rtab('projects');toast('permanently deleted');
 }
 
 // savePjNote replaced by savePjField
@@ -1415,7 +1458,7 @@ function renderNoteEditor(note, body){
 
   var typeEl=document.createElement('select');
   typeEl.className='pj-status-sel';
-  ['note','imaging','AFM','analysis','planning','protocol','result','idea','other'].forEach(function(t){
+  ['note','imaging','analysis','planning','protocol','result','idea','meeting','other'].forEach(function(t){
     var opt=document.createElement('option');opt.value=t;opt.textContent=t;
     if((note.noteType||'note')===t)opt.selected=true;
     typeEl.appendChild(opt);
@@ -2030,6 +2073,116 @@ function doAssign(cid){
   save();closeModal();renderFeed();renderMap();
   if(selId===cid)renderRight();
   toast('assigned');
+}
+
+
+// ── PROJECT LOG ENTRIES ──────────────────────────────────────────────────────
+function renderProjectLogs(p, container){
+  if(!p.logs)p.logs=[];
+  container.innerHTML='';
+  if(!p.logs.length){
+    var empty=document.createElement('div');
+    empty.style.cssText='font-size:11px;color:var(--text3);font-family:var(--mono);padding:8px 0';
+    empty.textContent='no log entries yet';
+    container.appendChild(empty);
+    return;
+  }
+  var sorted=p.logs.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  sorted.forEach(function(log){
+    var card=document.createElement('div');
+    card.style.cssText='background:var(--bg);border:1px solid var(--border);border-radius:5px;margin-bottom:6px;overflow:hidden';
+    // Header
+    var hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--bg3)';
+    var dateSpan=document.createElement('span');
+    dateSpan.style.cssText='font-size:10px;font-family:var(--mono);color:var(--amber)';
+    dateSpan.textContent=new Date(log.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    var typeSpan=document.createElement('span');typeSpan.className='notetag';typeSpan.textContent=log.type||'note';
+    var titleSpan=document.createElement('span');
+    titleSpan.style.cssText='font-size:12px;color:var(--text);flex:1';
+    titleSpan.textContent=log.title||'untitled';
+    var rmBtn=document.createElement('button');
+    rmBtn.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 4px';
+    rmBtn.textContent='✕';
+    rmBtn.onclick=function(e){
+      e.stopPropagation();
+      if(!confirm('Remove this log entry?'))return;
+      p.logs=p.logs.filter(function(x){return x.id!==log.id;});
+      save();renderProjectLogs(p,container);
+    };
+    hdr.appendChild(dateSpan);hdr.appendChild(typeSpan);hdr.appendChild(titleSpan);hdr.appendChild(rmBtn);
+    // Toggle content
+    var body=document.createElement('div');
+    body.style.cssText='padding:8px 10px;display:none';
+    hdr.onclick=function(){body.style.display=body.style.display==='none'?'block':'none';};
+    // Title input
+    var ti=document.createElement('input');
+    ti.style.cssText='width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;font-weight:500;padding:3px 0;outline:none;margin-bottom:8px;font-family:var(--sans)';
+    ti.placeholder='Entry title...';ti.value=log.title||'';
+    ti.oninput=function(){log.title=ti.value;titleSpan.textContent=log.title||'untitled';save();};
+    body.appendChild(ti);
+    // Type selector
+    var typeSel=document.createElement('select');typeSel.className='pj-status-sel';typeSel.style.marginBottom='8px';
+    ['note','imaging','analysis','planning','protocol','result','idea','meeting','other'].forEach(function(t){
+      var opt=document.createElement('option');opt.value=t;opt.textContent=t;
+      if((log.type||'note')===t)opt.selected=true;
+      typeSel.appendChild(opt);
+    });
+    typeSel.onchange=function(){log.type=typeSel.value;typeSpan.textContent=log.type;save();};
+    body.appendChild(typeSel);
+    // Blocks
+    if(!log.blocks)log.blocks=[{id:'b_'+Date.now(),type:'text',content:{html:''}}];
+    var blocksWrap=document.createElement('div');
+    blocksWrap.style.cssText='display:flex;flex-direction:column;gap:8px';
+    var savedCurrentNoteId=currentNoteId;
+    // Temporarily use log id for block editing
+    body.appendChild(blocksWrap);
+    renderLogBlocks(log,blocksWrap,p);
+    // Add block buttons
+    var addRow=document.createElement('div');
+    addRow.style.cssText='display:flex;gap:5px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)';
+    [{label:'+ text',type:'text'},{label:'+ image',type:'image'},{label:'+ drawing',type:'drawing'}].forEach(function(b){
+      var btn=document.createElement('button');btn.className='lbtn';btn.style.fontSize='10px';btn.textContent=b.label;
+      btn.onclick=function(){
+        var block={id:'b_'+Date.now(),type:b.type,content:b.type==='text'?{html:''}:b.type==='image'?{src:'',caption:''}:{data:null,svg:''}};
+        log.blocks.push(block);save();renderLogBlocks(log,blocksWrap,p);
+      };
+      addRow.appendChild(btn);
+    });
+    body.appendChild(addRow);
+    card.appendChild(hdr);card.appendChild(body);
+    container.appendChild(card);
+  });
+}
+
+function renderLogBlocks(log, container, proj){
+  container.innerHTML='';
+  (log.blocks||[]).forEach(function(block,idx){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;background:var(--bg3);border-radius:5px;overflow:hidden';
+    var ctrl=document.createElement('div');
+    ctrl.style.cssText='position:absolute;top:3px;right:3px;display:flex;gap:2px;opacity:0;transition:opacity .15s;z-index:2';
+    wrap.addEventListener('mouseenter',function(){ctrl.style.opacity='1';});
+    wrap.addEventListener('mouseleave',function(){ctrl.style.opacity='0';});
+    if(idx>0){var up=blockCtrlBtn('↑',function(){var b=log.blocks.splice(idx,1)[0];log.blocks.splice(idx-1,0,b);save();renderLogBlocks(log,container,proj);});ctrl.appendChild(up);}
+    if(idx<log.blocks.length-1){var dn=blockCtrlBtn('↓',function(){var b=log.blocks.splice(idx,1)[0];log.blocks.splice(idx+1,0,b);save();renderLogBlocks(log,container,proj);});ctrl.appendChild(dn);}
+    var rm=blockCtrlBtn('✕',function(){log.blocks.splice(idx,1);save();renderLogBlocks(log,container,proj);});rm.style.color='var(--red)';ctrl.appendChild(rm);
+    wrap.appendChild(ctrl);
+    if(block.type==='text'){renderTextBlock(block,wrap,null);}
+    else if(block.type==='image'){renderImageBlock(block,wrap,null);}
+    else if(block.type==='drawing'){renderDrawingBlock(block,wrap,null);}
+    container.appendChild(wrap);
+  });
+}
+
+function addProjectLog(pid, bdy){
+  var p=S.projects.find(function(x){return x.id===pid;});if(!p)return;
+  if(!p.logs)p.logs=[];
+  var log={id:'log_'+Date.now(),date:new Date().toISOString(),type:'note',title:'',blocks:[{id:'b_'+Date.now(),type:'text',content:{html:''}}]};
+  p.logs.unshift(log);save();
+  var container=document.getElementById('proj-log-list-'+pid);
+  if(container)renderProjectLogs(p,container);
+  toast('log entry added');
 }
 
 // ── CTX ──
