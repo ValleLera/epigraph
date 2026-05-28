@@ -921,6 +921,72 @@ function selectLibPaper(id){
     wrap.appendChild(ab);
   }
 
+  // PDF section
+  var pdfSec=document.createElement('div');
+  pdfSec.style.cssText='margin-bottom:12px';
+  if(p.pdfPath){
+    var pdfInfo=document.createElement('div');
+    pdfInfo.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)';
+    var pdfIcon=document.createElement('span');pdfIcon.textContent='📄';pdfIcon.style.fontSize='14px';
+    var pdfName=document.createElement('span');pdfName.style.cssText='font-size:11px;color:var(--text2);flex:1;font-family:var(--mono)';
+    pdfName.textContent=p.pdfPath.split('/').pop();
+    var rmPdf=document.createElement('button');rmPdf.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px';rmPdf.textContent='✕';
+    rmPdf.onclick=function(){p.pdfPath=null;save();mbox.innerHTML='';mbox.appendChild(wrap);document.getElementById('overlay').classList.add('open');};
+    pdfSec.appendChild(pdfInfo);
+    pdfInfo.appendChild(pdfIcon);pdfInfo.appendChild(pdfName);pdfInfo.appendChild(rmPdf);
+    if(window.epigraph&&window.epigraph.isElectron){
+      var openPdf=document.createElement('button');openPdf.className='lbtn';openPdf.style.fontSize='10px';openPdf.textContent='open PDF';
+      openPdf.onclick=function(){window.epigraph.openPath(p.pdfPath,'auto');};
+      pdfInfo.appendChild(openPdf);
+    }
+  } else {
+    var pdfDrop=document.createElement('div');
+    pdfDrop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:12px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
+    pdfDrop.textContent='drop PDF here or click to attach';
+    pdfDrop.onclick=function(){
+      if(window.epigraph&&window.epigraph.isElectron){
+        window.epigraph.pickPdf().then(function(r){
+          if(!r.ok||r.cancelled)return;
+          p.pdfPath=r.filePath;save();
+          pdfSec.innerHTML='';
+          var inf=document.createElement('div');inf.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)';
+          var ic=document.createElement('span');ic.textContent='📄';
+          var nm=document.createElement('span');nm.style.cssText='font-size:11px;color:var(--text2);flex:1;font-family:var(--mono)';nm.textContent=r.filePath.split('/').pop();
+          inf.appendChild(ic);inf.appendChild(nm);pdfSec.appendChild(inf);
+          toast('PDF attached: '+r.filePath.split('/').pop());
+        });
+      } else {
+        var fi=document.createElement('input');fi.type='file';fi.accept='.pdf';
+        fi.onchange=function(){
+          if(!fi.files[0])return;
+          p.pdfName=fi.files[0].name;
+          p.pdfPath=fi.files[0].name;
+          save();toast('PDF name saved (path only — use Electron app for full access)');
+        };
+        fi.click();
+      }
+    };
+    pdfDrop.addEventListener('dragover',function(e){e.preventDefault();pdfDrop.style.borderColor='var(--amber)';});
+    pdfDrop.addEventListener('dragleave',function(){pdfDrop.style.borderColor='var(--border2)';});
+    pdfDrop.addEventListener('drop',function(e){
+      e.preventDefault();pdfDrop.style.borderColor='var(--border2)';
+      var file=e.dataTransfer.files[0];
+      if(!file||!file.name.endsWith('.pdf')){toast('please drop a PDF file');return;}
+      if(window.epigraph&&window.epigraph.isElectron){
+        // In Electron, get the file path
+        p.pdfPath=file.path||file.name;
+      } else {
+        p.pdfPath=file.name;
+      }
+      save();
+      pdfDrop.textContent='📄 '+file.name+' (attached)';
+      pdfDrop.style.borderColor='var(--green)';
+      toast('PDF attached: '+file.name);
+    });
+    pdfSec.appendChild(pdfDrop);
+  }
+  wrap.appendChild(pdfSec);
+
   function mkField(labelTxt, el){
     var lbl=document.createElement('label');lbl.textContent=labelTxt;wrap.appendChild(lbl);
     wrap.appendChild(el);
@@ -1293,6 +1359,24 @@ function openProject(pid){
   notesWrap.appendChild(notesLbl);notesWrap.appendChild(notesArea);
   bdy.appendChild(notesWrap);
 
+  // Analysis section
+  var analysisSec=document.createElement('div');
+  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+  var analysisLbl=document.createElement('div');
+  analysisLbl.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer';
+  var analysisTitle=document.createElement('div');analysisTitle.className='pj-field-label';analysisTitle.style.margin='0';analysisTitle.textContent='analysis';
+  var analysisToggle=document.createElement('span');analysisToggle.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono)';analysisToggle.textContent='▸ expand';
+  analysisLbl.appendChild(analysisTitle);analysisLbl.appendChild(analysisToggle);
+  var analysisBody=document.createElement('div');analysisBody.style.display='none';
+  analysisLbl.onclick=function(){
+    var open=analysisBody.style.display==='none';
+    analysisBody.style.display=open?'block':'none';
+    analysisToggle.textContent=open?'▾ collapse':'▸ expand';
+    if(open)renderAnalysisSection(p,analysisBody);
+  };
+  analysisSec.appendChild(analysisLbl);analysisSec.appendChild(analysisBody);
+  bdy.appendChild(analysisSec);
+
   // Log entries
   var logSection=document.createElement('div');
   logSection.style.cssText='margin-top:12px;flex:1;display:flex;flex-direction:column';
@@ -1318,24 +1402,6 @@ function openProject(pid){
   delBtn.onclick=function(){deleteProject(pid);};
   footer.appendChild(delBtn);
   bdy.appendChild(footer);
-
-  // Analysis section
-  var analysisSec=document.createElement('div');
-  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
-  var analysisLbl=document.createElement('div');
-  analysisLbl.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer';
-  var analysisTitle=document.createElement('div');analysisTitle.className='pj-field-label';analysisTitle.style.margin='0';analysisTitle.textContent='analysis';
-  var analysisToggle=document.createElement('span');analysisToggle.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono)';analysisToggle.textContent='▸ expand';
-  analysisLbl.appendChild(analysisTitle);analysisLbl.appendChild(analysisToggle);
-  var analysisBody=document.createElement('div');analysisBody.style.display='none';
-  analysisLbl.onclick=function(){
-    var open=analysisBody.style.display==='none';
-    analysisBody.style.display=open?'block':'none';
-    analysisToggle.textContent=open?'▾ collapse':'▸ expand';
-    if(open)renderAnalysisSection(p,analysisBody);
-  };
-  analysisSec.appendChild(analysisLbl);analysisSec.appendChild(analysisBody);
-  bdy.appendChild(analysisSec);
 
   wrap.appendChild(bdy);
   body.appendChild(wrap);
@@ -2872,7 +2938,7 @@ function initResize(){
       if(!dragging)return;
       var dx=e.clientX-startX;
       var newW=side==='left'?startW+dx:startW-dx;
-      newW=Math.max(180,Math.min(500,newW));
+      newW=Math.max(0,Math.min(900,newW));
       panel.style.width=newW+'px';
     });
     window.addEventListener('mouseup',function(){

@@ -94,6 +94,16 @@ ipcMain.handle('pick-image', async () => {
   } catch (e) { return { ok: false, error: e.message } }
 })
 
+ipcMain.handle('pick-pdf', async () => {
+  const { filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Attach PDF',
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    properties: ['openFile']
+  })
+  if (!filePaths || !filePaths[0]) return { ok: false, cancelled: true }
+  return { ok: true, filePath: filePaths[0] }
+})
+
 // ── FILE / FOLDER OPENING ─────────────────────────────────────────────────────
 
 ipcMain.handle('open-path', async (event, filePath, mode) => {

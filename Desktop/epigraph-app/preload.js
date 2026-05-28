@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('epigraph', {
 
   // Files
   pickImage:   ()           => ipcRenderer.invoke('pick-image'),
+  pickPdf:     ()           => ipcRenderer.invoke('pick-pdf'),
   openPath:    (p, mode)    => ipcRenderer.invoke('open-path', p, mode),
 
   // Git
