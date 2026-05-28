@@ -110,7 +110,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .fbtn{flex:1;padding:5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;font-family:var(--mono);transition:all .15s;text-align:center;}
 .fbtn:hover{border-color:var(--cyan);color:var(--cyan);}
 .fbtn:disabled{opacity:.4;cursor:not-allowed;}
-#feed-list{flex:1;overflow-y:auto;padding:6px;}
+#feed-list{flex:1;overflow-y:auto;padding:6px;min-height:0;}
 #feed-list::-webkit-scrollbar{width:2px;}
 #feed-list::-webkit-scrollbar-thumb{background:var(--bg4);}
 .pcard{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:9px;margin-bottom:5px;transition:border-color .15s;}
@@ -387,6 +387,10 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <button class="fbtn" onclick="clearInbox()" style="flex:0;padding:5px 8px;" title="clear inbox">✕</button>
   </div>
   <div id="feed-list"><div class="empty">fetch papers to review<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from your claims</span></div></div>
+  <div style="flex-shrink:0;border-top:1px solid var(--border);">
+    <div id="feed-settings-btn" onclick="toggleFeedSettings()" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text3);transition:color .15s;"><span>&#9881;</span><span>settings</span></div>
+    <div id="feed-settings-panel" style="display:none;padding:0 12px 10px;overflow-y:auto;max-height:300px;"></div>
+  </div>
 </div>
 
 <div class="divider" id="div-left"></div>
@@ -2223,6 +2227,7 @@ document.getElementById('overlay').addEventListener('click',function(e){if(e.tar
 function v(id){var el=document.getElementById(id);return el?el.value.trim():'';}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
+function resetData(){if(!confirm('Reset all data to seed? Cannot be undone.'))return;localStorage.removeItem('epigraph');location.reload();}
 
 // ── FEED SETTINGS ──
 function toggleFeedSettings(){
@@ -2498,7 +2503,6 @@ function renderFeedSettings(){
   var panel=document.getElementById('feed-settings-panel');
   if(!panel)return;
   panel.innerHTML='';
-  var vs=S.settings.visStrands||{jam:true,col:true,yap:true,nuc:true};
 
   function mkLabel(txt,sub){
     var d=document.createElement('div');
@@ -2519,10 +2523,14 @@ function renderFeedSettings(){
   }
   function mkTitle(txt){
     var d=document.createElement('div');d.className='sgrouptitle';
-    d.style.marginBottom='8px';d.textContent=txt;panel.appendChild(d);
+    d.style.cssText='margin-bottom:8px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em';
+    d.textContent=txt;panel.appendChild(d);
+  }
+  function mkBtn(txt,fn,style){
+    var b=document.createElement('button');b.className='lbtn';b.textContent=txt;
+    if(style)b.style.cssText=style;b.onclick=fn;return b;
   }
 
-  // Map section
   mkTitle('map');
   mkRow(mkLabel('zoom speed','slower ← → faster'),
         mkSlider('zoomSpeed',1,15,Math.round((S.settings.zoomSpeed||0.04)*100)));
@@ -2531,30 +2539,22 @@ function renderFeedSettings(){
   mkRow(mkLabel('edge opacity'),
         mkSlider('edgeOpacity',5,80,Math.round((S.settings.edgeOpacity||0.25)*100)));
 
-  // Strands section
-  var stTitle=document.createElement('div');stTitle.className='sgrouptitle';
-  stTitle.style.cssText='margin:10px 0 8px';stTitle.textContent='strands';panel.appendChild(stTitle);
-  var stWrap=document.createElement('div');stWrap.className='strand-toggle';
-  [{k:'jam',l:'jamming'},{k:'col',l:'migration'},{k:'yap',l:'YAP'},{k:'nuc',l:'nematic'}].forEach(function(s){
-    var sp=document.createElement('span');
-    sp.className='st'+(vs[s.k]?' on '+s.k:'')+' '+s.k;
-    sp.textContent=s.l;
-    sp.onclick=(function(key){return function(){toggleStrand(key);renderFeedSettings();};})(s.k);
-    stWrap.appendChild(sp);
-  });
-  panel.appendChild(stWrap);
+  var sep=document.createElement('div');sep.style.cssText='height:1px;background:var(--border);margin:10px 0';panel.appendChild(sep);
+  mkTitle('data');
 
-  // Data section
-  var dtTitle=document.createElement('div');dtTitle.className='sgrouptitle';
-  dtTitle.style.cssText='margin:10px 0 8px';dtTitle.textContent='data';panel.appendChild(dtTitle);
   var dtRow=document.createElement('div');dtRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-
-  function mkBtn(txt,fn,style){
-    var b=document.createElement('button');b.className='lbtn';b.textContent=txt;
-    if(style)b.style.cssText=style;b.onclick=fn;return b;
-  }
   dtRow.appendChild(mkBtn(String.fromCharCode(8595)+' export',exportData));
-  dtRow.appendChild(mkBtn(String.fromCharCode(8593)+' import',triggerImport));
+
+  // Import button
+  var impBtn=mkBtn(String.fromCharCode(8593)+' import',function(){
+    if(window.epigraph&&window.epigraph.isElectron){
+      importData(null);
+    } else {
+      var fi=document.getElementById('import-file-input');
+      if(fi)fi.click();
+    }
+  });
+  dtRow.appendChild(impBtn);
 
   var fileInp=document.createElement('input');
   fileInp.type='file';fileInp.id='import-file-input';fileInp.accept='.json';
@@ -2562,7 +2562,7 @@ function renderFeedSettings(){
   fileInp.onchange=function(){importData(fileInp);};
   dtRow.appendChild(fileInp);
 
-  dtRow.appendChild(mkBtn('reset',resetData,'color:var(--red);border-color:rgba(239,68,68,.3)'));
+  dtRow.appendChild(mkBtn('reset all',resetData,'color:var(--red);border-color:rgba(239,68,68,.3)'));
   panel.appendChild(dtRow);
 }
 
