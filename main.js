@@ -2,8 +2,13 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
-// Data file lives next to the app
-const dataPath = path.join(app.getAppPath(), 'epigraph_data.json')
+// Data file path - correct for both dev and packaged
+function getDataPath() {
+  if (app.isPackaged) {
+    return path.join(app.getPath('userData'), 'epigraph_data.json')
+  }
+  return path.join(__dirname, 'epigraph_data.json')
+}
 
 let win
 
@@ -13,7 +18,7 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',  // Mac: clean title bar
+    titleBarStyle: 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -21,34 +26,41 @@ function createWindow() {
     },
     title: 'Epigraph'
   })
-
   win.loadFile('index.html')
-
-  // Open DevTools only in dev mode
   // win.webContents.openDevTools()
 }
 
-// ── FILE I/O ──────────────────────────────────────────────────────────────────
-
 ipcMain.handle('load-data', () => {
+  const dataPath = getDataPath()
   try {
     if (fs.existsSync(dataPath)) {
-      const raw = fs.readFileSync(dataPath, 'utf-8')
-      return JSON.parse(raw)
+      return JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
     }
-    return null  // first launch - app will use seed data
+    // Migration from dev folder when first launching packaged app
+    if (app.isPackaged) {
+      const devPath = path.join(path.dirname(app.getAppPath()), 'epigraph_data.json')
+      if (fs.existsSync(devPath)) {
+        const data = JSON.parse(fs.readFileSync(devPath, 'utf-8'))
+        fs.writeFileSync(dataPath, JSON.stringify(data, null, 2))
+        return data
+      }
+    }
+    return null
   } catch (e) {
-    console.error('Error loading data:', e)
+    console.error('load-data error:', e)
     return null
   }
 })
 
 ipcMain.handle('save-data', (event, data) => {
+  const dataPath = getDataPath()
   try {
+    const dir = path.dirname(dataPath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8')
     return { ok: true }
   } catch (e) {
-    console.error('Error saving data:', e)
+    console.error('save-data error:', e)
     return { ok: false, error: e.message }
   }
 })
@@ -76,15 +88,12 @@ ipcMain.handle('import-data', async () => {
   })
   if (!filePaths || !filePaths[0]) return { ok: false, cancelled: true }
   try {
-    const raw = fs.readFileSync(filePaths[0], 'utf-8')
-    const data = JSON.parse(raw)
+    const data = JSON.parse(fs.readFileSync(filePaths[0], 'utf-8'))
     return { ok: true, data }
   } catch (e) {
     return { ok: false, error: e.message }
   }
 })
-
-// ── IMAGE / FILE HANDLING ─────────────────────────────────────────────────────
 
 ipcMain.handle('pick-image', async () => {
   const { filePaths } = await dialog.showOpenDialog(win, {
@@ -100,59 +109,41 @@ ipcMain.handle('pick-image', async () => {
     const data = fs.readFileSync(filePaths[0])
     const ext = path.extname(filePaths[0]).toLowerCase().replace('.','')
     const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
-    const b64 = `data:${mime};base64,${data.toString('base64')}`
-    return { ok: true, dataUrl: b64, name: path.basename(filePaths[0]) }
+    return { ok: true, dataUrl: `data:${mime};base64,${data.toString('base64')}`, name: path.basename(filePaths[0]) }
   } catch (e) {
     return { ok: false, error: e.message }
   }
 })
 
-// ── APP MENU ──────────────────────────────────────────────────────────────────
-
 function buildMenu() {
   const template = [
-    {
-      label: 'Epigraph',
-      submenu: [
-        { label: 'About Epigraph', role: 'about' },
-        { type: 'separator' },
-        { label: 'Hide Epigraph', role: 'hide' },
-        { role: 'hideOthers' },
-        { type: 'separator' },
-        { label: 'Quit', role: 'quit' }
-      ]
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' }, { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
-        { role: 'selectAll' }
-      ]
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { type: 'separator' },
-        { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
-    },
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' }, { role: 'zoom' },
-        { type: 'separator' }, { role: 'front' }
-      ]
-    }
+    { label: 'Epigraph', submenu: [
+      { label: 'About Epigraph', role: 'about' },
+      { type: 'separator' },
+      { label: 'Hide Epigraph', role: 'hide' },
+      { role: 'hideOthers' },
+      { type: 'separator' },
+      { label: 'Quit', role: 'quit' }
+    ]},
+    { label: 'Edit', submenu: [
+      { role: 'undo' }, { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }
+    ]},
+    { label: 'View', submenu: [
+      { role: 'reload' },
+      { type: 'separator' },
+      { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
+      { type: 'separator' },
+      { role: 'togglefullscreen' }
+    ]},
+    { label: 'Window', submenu: [
+      { role: 'minimize' }, { role: 'zoom' },
+      { type: 'separator' }, { role: 'front' }
+    ]}
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
-
-// ── LIFECYCLE ─────────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
   createWindow()

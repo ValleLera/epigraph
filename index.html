@@ -527,6 +527,11 @@ async function init(){
     var p=null;
     if(window.epigraph&&window.epigraph.isElectron){
       try{p=await window.epigraph.loadData();}catch(e){}
+      // Migration: if no file data yet, try localStorage
+      if(!p){
+        var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3');
+        if(sv)try{p=JSON.parse(sv);window.epigraph.saveData(p);}catch(e){}
+      }
     } else {
       var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
       if(sv)try{p=JSON.parse(sv);}catch(e){}
