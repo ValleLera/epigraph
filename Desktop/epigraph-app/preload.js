@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('epigraph', {
   openPath:    (p, mode)    => ipcRenderer.invoke('open-path', p, mode),
 
   // Git
+  listFiles:   (folder, ext)=> ipcRenderer.invoke('list-files', folder, ext),
   gitStatus:   (folder)     => ipcRenderer.invoke('git-status', folder),
   gitCommit:   (folder, msg)=> ipcRenderer.invoke('git-commit', folder, msg),
   gitPush:     (folder, url, token) => ipcRenderer.invoke('git-push', folder, url, token),

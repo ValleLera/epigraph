@@ -165,6 +165,17 @@ function runGit(args, cwd) {
   })
 }
 
+ipcMain.handle('list-files', async (event, folderPath, ext) => {
+  try {
+    const expanded = folderPath.replace(/^~/, app.getPath('home'))
+    if (!fs.existsSync(expanded)) return { ok: false, error: 'folder not found: ' + expanded }
+    const files = fs.readdirSync(expanded)
+      .filter(f => !ext || f.toLowerCase().endsWith(ext.toLowerCase()))
+      .map(f => ({ name: f, path: path.join(expanded, f) }))
+    return { ok: true, files }
+  } catch (e) { return { ok: false, error: e.message } }
+})
+
 ipcMain.handle('git-status', async (event, folderPath) => {
   const expanded = folderPath.replace(/^~/, app.getPath('home'))
   if (!fs.existsSync(expanded)) return { ok: false, status: 'folder not found' }
