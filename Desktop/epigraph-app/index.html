@@ -741,7 +741,11 @@ function renderRight(){
 // ── CLAIM DETAIL ──
 function renderClaimDetail(){
   var body=document.getElementById('rbody');
-  if(!selId){body.innerHTML='<div class="empty">click a claim<br>on the map<br>to explore it</div>';return;}
+  if(!selId){
+    body.innerHTML='<div class="empty">click a claim<br>on the map<br>to explore it</div>'
+      +'<div style="padding:10px"><button class="newbtn" onclick="openNewClaim()">+ new claim</button></div>';
+    return;
+  }
   var c=S.claims.find(function(x){return x.id===selId;});
   if(!c){body.innerHTML='<div class="empty">claim not found</div>';return;}
   var sL={jam:'jamming',col:'migration',yap:'YAP/packing',nuc:'nematic'};
@@ -922,48 +926,46 @@ function selectLibPaper(id){
   }
 
   // PDF section
-  var pdfSec=document.createElement('div');
-  pdfSec.style.cssText='margin-bottom:12px';
+  var pdfSec=document.createElement('div');pdfSec.style.marginBottom='12px';
   if(p.pdfPath){
-    var pdfInfo=document.createElement('div');
-    pdfInfo.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)';
-    var pdfIcon=document.createElement('span');pdfIcon.textContent='📄';pdfIcon.style.fontSize='14px';
-    var pdfName=document.createElement('span');pdfName.style.cssText='font-size:11px;color:var(--text2);flex:1;font-family:var(--mono)';
-    pdfName.textContent=p.pdfPath.split('/').pop();
-    var rmPdf=document.createElement('button');rmPdf.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px';rmPdf.textContent='✕';
-    rmPdf.onclick=function(){p.pdfPath=null;save();mbox.innerHTML='';mbox.appendChild(wrap);document.getElementById('overlay').classList.add('open');};
-    pdfSec.appendChild(pdfInfo);
-    pdfInfo.appendChild(pdfIcon);pdfInfo.appendChild(pdfName);pdfInfo.appendChild(rmPdf);
+    // Show PDF viewer using PDF.js
+    var pdfHdr=document.createElement('div');
+    pdfHdr.style.cssText='display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg3);border-radius:4px 4px 0 0;border:1px solid var(--border)';
+    var pdfNm=document.createElement('span');pdfNm.style.cssText='flex:1;font-size:11px;color:var(--text2);font-family:var(--mono)';pdfNm.textContent=p.pdfPath.split('/').pop()||p.pdfPath;
+    var rmPdf=document.createElement('button');rmPdf.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px';rmPdf.textContent=String.fromCharCode(10005);
+    rmPdf.style.cssText='background:none;border:1px solid rgba(239,68,68,.25);border-radius:3px;color:var(--text3);cursor:pointer;font-size:10px;padding:2px 7px;margin-left:8px';
+    rmPdf.textContent='detach';
+    rmPdf.onclick=function(){if(!confirm('Detach this PDF?'))return;p.pdfPath=null;save();selectLibPaper(id);};
+    pdfHdr.appendChild(pdfNm);
     if(window.epigraph&&window.epigraph.isElectron){
-      var openPdf=document.createElement('button');openPdf.className='lbtn';openPdf.style.fontSize='10px';openPdf.textContent='open PDF';
-      openPdf.onclick=function(){window.epigraph.openPath(p.pdfPath,'auto');};
-      pdfInfo.appendChild(openPdf);
+      var openPdfBtn=document.createElement('button');openPdfBtn.className='lbtn';openPdfBtn.style.cssText='font-size:10px;margin-left:4px';openPdfBtn.textContent='open in Preview';
+      openPdfBtn.onclick=function(){window.epigraph.openPath(p.pdfPath,'finder');};
+      pdfHdr.appendChild(openPdfBtn);
     }
+    pdfHdr.appendChild(rmPdf);
+    pdfSec.appendChild(pdfHdr);
+
+    // Inline PDF viewer via PDF.js CDN
+    var pdfFrame=document.createElement('iframe');
+    var pdfUrl=window.epigraph&&window.epigraph.isElectron?
+      'file://'+p.pdfPath :
+      'https://mozilla.github.io/pdf.js/web/viewer.html?file='+encodeURIComponent(p.pdfPath);
+    pdfFrame.src=pdfUrl;
+    pdfFrame.style.cssText='width:100%;height:500px;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;background:white';
+    pdfSec.appendChild(pdfFrame);
   } else {
     var pdfDrop=document.createElement('div');
-    pdfDrop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:12px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
+    pdfDrop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
     pdfDrop.textContent='drop PDF here or click to attach';
     pdfDrop.onclick=function(){
       if(window.epigraph&&window.epigraph.isElectron){
         window.epigraph.pickPdf().then(function(r){
           if(!r.ok||r.cancelled)return;
-          p.pdfPath=r.filePath;save();
-          pdfSec.innerHTML='';
-          var inf=document.createElement('div');inf.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)';
-          var ic=document.createElement('span');ic.textContent='📄';
-          var nm=document.createElement('span');nm.style.cssText='font-size:11px;color:var(--text2);flex:1;font-family:var(--mono)';nm.textContent=r.filePath.split('/').pop();
-          inf.appendChild(ic);inf.appendChild(nm);pdfSec.appendChild(inf);
-          toast('PDF attached: '+r.filePath.split('/').pop());
+          p.pdfPath=r.filePath;save();selectLibPaper(id);toast('PDF attached');
         });
       } else {
         var fi=document.createElement('input');fi.type='file';fi.accept='.pdf';
-        fi.onchange=function(){
-          if(!fi.files[0])return;
-          p.pdfName=fi.files[0].name;
-          p.pdfPath=fi.files[0].name;
-          save();toast('PDF name saved (path only — use Electron app for full access)');
-        };
-        fi.click();
+        fi.onchange=function(){if(!fi.files[0])return;p.pdfPath=fi.files[0].name;save();selectLibPaper(id);};fi.click();
       }
     };
     pdfDrop.addEventListener('dragover',function(e){e.preventDefault();pdfDrop.style.borderColor='var(--amber)';});
@@ -972,16 +974,7 @@ function selectLibPaper(id){
       e.preventDefault();pdfDrop.style.borderColor='var(--border2)';
       var file=e.dataTransfer.files[0];
       if(!file||!file.name.endsWith('.pdf')){toast('please drop a PDF file');return;}
-      if(window.epigraph&&window.epigraph.isElectron){
-        // In Electron, get the file path
-        p.pdfPath=file.path||file.name;
-      } else {
-        p.pdfPath=file.name;
-      }
-      save();
-      pdfDrop.textContent='📄 '+file.name+' (attached)';
-      pdfDrop.style.borderColor='var(--green)';
-      toast('PDF attached: '+file.name);
+      p.pdfPath=file.path||file.name;save();selectLibPaper(id);toast('PDF attached: '+file.name);
     });
     pdfSec.appendChild(pdfDrop);
   }
@@ -1359,24 +1352,6 @@ function openProject(pid){
   notesWrap.appendChild(notesLbl);notesWrap.appendChild(notesArea);
   bdy.appendChild(notesWrap);
 
-  // Analysis section
-  var analysisSec=document.createElement('div');
-  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
-  var analysisLbl=document.createElement('div');
-  analysisLbl.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer';
-  var analysisTitle=document.createElement('div');analysisTitle.className='pj-field-label';analysisTitle.style.margin='0';analysisTitle.textContent='analysis';
-  var analysisToggle=document.createElement('span');analysisToggle.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono)';analysisToggle.textContent='▸ expand';
-  analysisLbl.appendChild(analysisTitle);analysisLbl.appendChild(analysisToggle);
-  var analysisBody=document.createElement('div');analysisBody.style.display='none';
-  analysisLbl.onclick=function(){
-    var open=analysisBody.style.display==='none';
-    analysisBody.style.display=open?'block':'none';
-    analysisToggle.textContent=open?'▾ collapse':'▸ expand';
-    if(open)renderAnalysisSection(p,analysisBody);
-  };
-  analysisSec.appendChild(analysisLbl);analysisSec.appendChild(analysisBody);
-  bdy.appendChild(analysisSec);
-
   // Log entries
   var logSection=document.createElement('div');
   logSection.style.cssText='margin-top:12px;flex:1;display:flex;flex-direction:column';
@@ -1402,6 +1377,24 @@ function openProject(pid){
   delBtn.onclick=function(){deleteProject(pid);};
   footer.appendChild(delBtn);
   bdy.appendChild(footer);
+
+  // Analysis section
+  var analysisSec=document.createElement('div');
+  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+  var analysisLbl=document.createElement('div');
+  analysisLbl.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer';
+  var analysisTitle=document.createElement('div');analysisTitle.className='pj-field-label';analysisTitle.style.margin='0';analysisTitle.textContent='analysis';
+  var analysisToggle=document.createElement('span');analysisToggle.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono)';analysisToggle.textContent='▸ expand';
+  analysisLbl.appendChild(analysisTitle);analysisLbl.appendChild(analysisToggle);
+  var analysisBody=document.createElement('div');analysisBody.style.display='none';
+  analysisLbl.onclick=function(){
+    var open=analysisBody.style.display==='none';
+    analysisBody.style.display=open?'block':'none';
+    analysisToggle.textContent=open?'▾ collapse':'▸ expand';
+    if(open)renderAnalysisSection(p,analysisBody);
+  };
+  analysisSec.appendChild(analysisLbl);analysisSec.appendChild(analysisBody);
+  bdy.appendChild(analysisSec);
 
   wrap.appendChild(bdy);
   body.appendChild(wrap);
@@ -2316,213 +2309,222 @@ function addProjectLog(pid, bdy){
 // ── ANALYSIS SECTION IN PROJECTS ─────────────────────────────────────────────
 
 function renderAnalysisSection(p, container) {
-  if(!p.analysis)p.analysis={
-    analysisFolder:'', dataFolders:[], steps:[], githubRepo:'', gitToken:''
-  };
-  var a=p.analysis;
-
+  if(!p.analyses)p.analyses=[];
+  // Track which analysis cards are open (persist across re-renders)
+  var openIds=new Set();
+  container.querySelectorAll('[data-anid]').forEach(function(el){
+    var body=el.querySelector('.an-body');
+    if(body&&body.style.display!=='none')openIds.add(el.dataset.anid);
+  });
+  if(!p._openAnalyses)p._openAnalyses={};
+  Object.keys(p._openAnalyses).forEach(function(k){if(p._openAnalyses[k])openIds.add(k);});
   container.innerHTML='';
 
-  // ── Analysis folder ─────────────────────────────────────────────────────
-  var section=function(title){
-    var d=document.createElement('div');d.style.cssText='margin-bottom:12px';
-    var lbl=document.createElement('div');lbl.className='pj-field-label';lbl.style.margin='0 0 5px';
-    lbl.textContent=title;d.appendChild(lbl);return d;
+  var addBtn=document.createElement('button');addBtn.className='newbtn';addBtn.style.margin='0 0 8px';
+  addBtn.textContent='+ new analysis';
+  addBtn.onclick=function(){
+    p.analyses.push({id:'an_'+Date.now(),name:'',date:new Date().toISOString().slice(0,10),
+      description:'',analysisFolder:'',dataFolders:[],steps:[],githubRepo:'',gitToken:'',files:[]});
+    save();renderAnalysisSection(p,container);
   };
+  container.appendChild(addBtn);
 
-  // Analysis folder
-  var afSec=section('analysis folder');
-  var afRow=document.createElement('div');afRow.style.cssText='display:flex;gap:5px;align-items:center';
-  var afInp=document.createElement('input');
-  afInp.className='pj-hyp-input';afInp.style.flex='1';
-  afInp.placeholder='~/analysis/project-name/';
-  afInp.value=a.analysisFolder||'';
-  afInp.onblur=function(){a.analysisFolder=afInp.value.trim();save();};
-  afRow.appendChild(afInp);
-
-  if(window.epigraph&&window.epigraph.isElectron){
-    var openVSC=document.createElement('button');openVSC.className='lbtn';openVSC.textContent='VS Code';
-    openVSC.onclick=function(){if(a.analysisFolder)window.epigraph.openPath(a.analysisFolder,'vscode');};
-    var openFinder=document.createElement('button');openFinder.className='lbtn';openFinder.textContent='Finder';
-    openFinder.onclick=function(){if(a.analysisFolder)window.epigraph.openPath(a.analysisFolder,'finder');};
-    afRow.appendChild(openVSC);afRow.appendChild(openFinder);
-
-    // Git commit button
-    var gitBtn=document.createElement('button');gitBtn.className='lbtn';
-    gitBtn.style.cssText='background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)';
-    gitBtn.textContent='git commit';
-    gitBtn.onclick=function(){
-      var msg=prompt('Commit message:','checkpoint');
-      if(!msg)return;
-      window.epigraph.gitCommit(a.analysisFolder,msg).then(function(r){
-        toast(r.ok?'committed: '+msg:('git error: '+(r.error||'unknown')));
-      });
-    };
-    afRow.appendChild(gitBtn);
-  }
-  afSec.appendChild(afRow);
-
-  // Git status line
-  var gitStatus=document.createElement('div');
-  gitStatus.id='git-status-'+p.id;
-  gitStatus.style.cssText='font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:4px';
-  gitStatus.textContent='';
-  afSec.appendChild(gitStatus);
-  container.appendChild(afSec);
-
-  // Load git status if folder set
-  if(a.analysisFolder&&window.epigraph&&window.epigraph.isElectron){
-    window.epigraph.gitStatus(a.analysisFolder).then(function(r){
-      if(r.ok)gitStatus.textContent=r.status;
-    });
+  if(!p.analyses.length){
+    var empty=document.createElement('div');
+    empty.style.cssText='font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 0';
+    empty.textContent='no analyses yet';
+    container.appendChild(empty);return;
   }
 
-  // ── Data folders ─────────────────────────────────────────────────────────
-  var dfSec=section('data folders');
-  if(!a.dataFolders)a.dataFolders=[];
-  a.dataFolders.forEach(function(df,i){
-    var row=document.createElement('div');row.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:4px';
-    var lblInp=document.createElement('input');lblInp.style.cssText='width:80px;flex:none;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;color:var(--text3);font-size:10px;font-family:var(--mono);outline:none';
-    lblInp.placeholder='label';lblInp.value=df.label||'';
-    lblInp.onblur=function(){df.label=lblInp.value;save();};
-    var pathInp=document.createElement('input');pathInp.style.cssText='flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;color:var(--text2);font-size:11px;font-family:var(--mono);outline:none';
-    pathInp.placeholder='/Volumes/LaCie2/experiment/';pathInp.value=df.path||'';
-    pathInp.onblur=function(){df.path=pathInp.value.trim();save();};
-    var rmBtn=document.createElement('button');rmBtn.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px';rmBtn.textContent='✕';
-    rmBtn.onclick=function(){a.dataFolders.splice(i,1);save();renderAnalysisSection(p,container);};
-    if(window.epigraph&&window.epigraph.isElectron){
-      var openBtn=document.createElement('button');openBtn.className='lbtn';openBtn.style.fontSize='9px';openBtn.textContent='open';
-      openBtn.onclick=function(){if(df.path)window.epigraph.openPath(df.path,'finder');};
-      row.appendChild(lblInp);row.appendChild(pathInp);row.appendChild(openBtn);row.appendChild(rmBtn);
-    } else {
-      row.appendChild(lblInp);row.appendChild(pathInp);row.appendChild(rmBtn);
-    }
-    dfSec.appendChild(row);
-  });
-  var addDf=document.createElement('button');addDf.className='lbtn';addDf.style.fontSize='10px';addDf.textContent='+ data folder';
-  addDf.onclick=function(){a.dataFolders.push({label:'',path:''});save();renderAnalysisSection(p,container);};
-  dfSec.appendChild(addDf);
-  container.appendChild(dfSec);
-
-  // ── Pipeline steps ────────────────────────────────────────────────────────
-  var psSec=section('pipeline steps');
-  if(!a.steps)a.steps=[];
-
-  a.steps.forEach(function(step,i){
+  p.analyses.forEach(function(an,ai){
     var card=document.createElement('div');
-    card.style.cssText='background:var(--bg);border:1px solid var(--border);border-radius:5px;margin-bottom:5px;overflow:hidden';
-
-    // Step header
-    var hdr=document.createElement('div');
-    hdr.style.cssText='display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;background:var(--bg3)';
-
-    // Done checkbox
-    var check=document.createElement('span');
-    check.style.cssText='width:14px;height:14px;border:1.5px solid '+(step.done?'var(--green)':'var(--border2)')+';border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:10px;background:'+(step.done?'rgba(34,197,94,.15)':'transparent');
-    check.textContent=step.done?'✓':'';
-    check.onclick=function(e){e.stopPropagation();step.done=!step.done;save();renderAnalysisSection(p,container);};
-
-    // Tool badge
-    var toolEl=document.createElement('input');
-    toolEl.style.cssText='width:80px;flex:none;background:transparent;border:none;color:var(--amber);font-size:10px;font-family:var(--mono);font-weight:500;outline:none;padding:0;cursor:text';
-    toolEl.placeholder='tool';toolEl.value=step.tool||'';
-    toolEl.onclick=function(e){e.stopPropagation();};
-    toolEl.onblur=function(){step.tool=toolEl.value;save();};
-
-    // Step name
-    var nameEl=document.createElement('input');
-    nameEl.style.cssText='flex:1;background:transparent;border:none;color:var(--text);font-size:11px;outline:none;padding:0';
-    nameEl.placeholder='step description';nameEl.value=step.name||'';
-    nameEl.onclick=function(e){e.stopPropagation();};
-    nameEl.onblur=function(){step.name=nameEl.value;save();};
-
-    // Move up/down
-    if(i>0){
-      var up=document.createElement('button');up.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px';up.textContent='↑';
-      up.onclick=function(e){e.stopPropagation();var s=a.steps.splice(i,1)[0];a.steps.splice(i-1,0,s);save();renderAnalysisSection(p,container);};
-      hdr.appendChild(up);
-    }
-    if(i<a.steps.length-1){
-      var dn=document.createElement('button');dn.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px';dn.textContent='↓';
-      dn.onclick=function(e){e.stopPropagation();var s=a.steps.splice(i,1)[0];a.steps.splice(i+1,0,s);save();renderAnalysisSection(p,container);};
-      hdr.appendChild(dn);
-    }
-
-    var rmS=document.createElement('button');rmS.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px';rmS.textContent='✕';
-    rmS.onclick=function(e){e.stopPropagation();a.steps.splice(i,1);save();renderAnalysisSection(p,container);};
-
-    hdr.appendChild(check);hdr.appendChild(toolEl);hdr.appendChild(nameEl);hdr.appendChild(rmS);
-
-    // Step body (expand on click)
-    var body=document.createElement('div');body.style.cssText='padding:6px 10px;display:none';
-    hdr.onclick=function(){body.style.display=body.style.display==='none'?'block':'none';};
-
-    // Path
-    var pathRow=document.createElement('div');pathRow.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:5px';
-    var pathLbl=document.createElement('span');pathLbl.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);width:40px;flex-shrink:0';pathLbl.textContent='path';
-    var pathInp2=document.createElement('input');pathInp2.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:3px 6px;color:var(--text2);font-size:11px;font-family:var(--mono);outline:none';
-    pathInp2.placeholder='optional: file or folder path';pathInp2.value=step.path||'';
-    pathInp2.onblur=function(){step.path=pathInp2.value.trim();save();};
-    pathRow.appendChild(pathLbl);pathRow.appendChild(pathInp2);
-    if(window.epigraph&&window.epigraph.isElectron){
-      var openStep=document.createElement('button');openStep.className='lbtn';openStep.style.fontSize='9px';openStep.textContent='open';
-      openStep.onclick=function(){if(step.path)window.epigraph.openPath(step.path,'auto');};
-      pathRow.appendChild(openStep);
-    }
-    body.appendChild(pathRow);
-
-    // Notes
-    var notesTA=document.createElement('textarea');
-    notesTA.style.cssText='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:5px 7px;color:var(--text2);font-size:11px;font-family:var(--sans);outline:none;resize:none;line-height:1.5;min-height:50px';
-    notesTA.placeholder='parameters, notes, what changed...';notesTA.value=step.notes||'';
-    notesTA.onblur=function(){step.notes=notesTA.value;save();};
-    body.appendChild(notesTA);
-
-    card.appendChild(hdr);card.appendChild(body);
-    psSec.appendChild(card);
-  });
-
-  var tools=['FIJI','Cellpose','Python','MATLAB','PIVlab','ImageJ','napari','other'];
-  var addStepRow=document.createElement('div');addStepRow.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-top:4px';
-  tools.forEach(function(t){
-    var btn=document.createElement('button');btn.className='lbtn';btn.style.fontSize='10px';btn.textContent='+ '+t;
-    btn.onclick=function(){a.steps.push({tool:t,name:'',done:false,path:'',notes:''});save();renderAnalysisSection(p,container);};
-    addStepRow.appendChild(btn);
-  });
-  psSec.appendChild(addStepRow);
-  container.appendChild(psSec);
-
-  // ── GitHub ─────────────────────────────────────────────────────────────────
-  if(window.epigraph&&window.epigraph.isElectron){
-    var ghSec=section('github (private backup)');
-    var ghRow=document.createElement('div');ghRow.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:5px';
-    var ghInp=document.createElement('input');ghInp.className='pj-hyp-input';ghInp.style.flex='1';
-    ghInp.placeholder='github.com/username/repo-name';ghInp.value=a.githubRepo||'';
-    ghInp.onblur=function(){a.githubRepo=ghInp.value.trim();save();};
-    var pushBtn=document.createElement('button');pushBtn.className='lbtn';
-    pushBtn.style.cssText='background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)';
-    pushBtn.textContent='push';
-    pushBtn.onclick=function(){
-      if(!a.analysisFolder||!a.githubRepo){toast('need analysis folder and repo');return;}
-      window.epigraph.gitPush(a.analysisFolder,a.githubRepo).then(function(r){
-        toast(r.ok?'pushed to GitHub':('push error: '+(r.error||'unknown')));
-      });
+    card.dataset.anid=an.id;
+    card.style.cssText='background:var(--bg);border:1px solid var(--border);border-radius:5px;margin-bottom:6px;overflow:hidden';
+    var chdr=document.createElement('div');
+    chdr.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 9px;background:var(--bg3);cursor:pointer';
+    var nameInp=document.createElement('input');
+    nameInp.style.cssText='flex:1;background:transparent;border:none;color:var(--text);font-size:12px;font-weight:500;outline:none';
+    nameInp.placeholder='analysis name...';nameInp.value=an.name||'';
+    nameInp.onclick=function(e){e.stopPropagation();};
+    nameInp.onblur=function(){an.name=nameInp.value;save();};
+    var dateInp=document.createElement('input');dateInp.type='date';
+    dateInp.style.cssText='background:transparent;border:none;color:var(--text3);font-size:10px;font-family:var(--mono);outline:none';
+    dateInp.value=an.date||new Date().toISOString().slice(0,10);
+    dateInp.onclick=function(e){e.stopPropagation();};
+    dateInp.onchange=function(){an.date=dateInp.value;save();};
+    var rmBtn=document.createElement('button');
+    rmBtn.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 2px';
+    rmBtn.textContent=String.fromCharCode(10005);
+    rmBtn.onclick=function(e){e.stopPropagation();if(!confirm('Remove this analysis and all its steps?'))return;p.analyses.splice(ai,1);save();renderAnalysisSection(p,container);};
+    chdr.appendChild(nameInp);chdr.appendChild(dateInp);chdr.appendChild(rmBtn);
+    var cbody=document.createElement('div');cbody.className='an-body';
+    var isOpen=openIds.has(an.id)||(openIds.size===0&&ai===0);
+    cbody.style.cssText='padding:9px 10px;display:'+(isOpen?'block':'none');
+    if(!p._openAnalyses)p._openAnalyses={};
+    p._openAnalyses[an.id]=isOpen;
+    chdr.onclick=function(){
+      var open=cbody.style.display==='none';
+      cbody.style.display=open?'block':'none';
+      if(!p._openAnalyses)p._openAnalyses={};
+      p._openAnalyses[an.id]=open;
     };
-    ghRow.appendChild(ghInp);ghRow.appendChild(pushBtn);
-    ghSec.appendChild(ghRow);
 
-    var tokenRow=document.createElement('div');tokenRow.style.cssText='display:flex;gap:4px;align-items:center';
-    var tokenLbl=document.createElement('span');tokenLbl.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);flex-shrink:0';tokenLbl.textContent='token:';
-    var tokenInp=document.createElement('input');tokenInp.type='password';tokenInp.className='pj-hyp-input';tokenInp.style.flex='1';
-    tokenInp.placeholder='GitHub personal access token';tokenInp.value=a.gitToken||'';
-    tokenInp.onblur=function(){a.gitToken=tokenInp.value.trim();save();};
-    tokenRow.appendChild(tokenLbl);tokenRow.appendChild(tokenInp);
-    ghSec.appendChild(tokenRow);
-    container.appendChild(ghSec);
-  }
+    function mkLbl(txt){var d=document.createElement('div');d.style.cssText='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 3px';d.textContent=txt;return d;}
+    function mkSmBtn(txt,fn){var b=document.createElement('button');b.className='lbtn';b.style.fontSize='9px';b.textContent=txt;b.onclick=fn;return b;}
+
+    // Description
+    cbody.appendChild(mkLbl('description'));
+    var desc=document.createElement('textarea');
+    desc.style.cssText='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:5px 7px;color:var(--text2);font-size:11px;outline:none;resize:none;min-height:36px;line-height:1.5';
+    desc.placeholder='what does this analysis do?';desc.value=an.description||'';
+    desc.onblur=function(){an.description=desc.value;save();};
+    cbody.appendChild(desc);
+
+    // Folder
+    cbody.appendChild(mkLbl('analysis folder'));
+    var folderRow=document.createElement('div');folderRow.style.cssText='display:flex;gap:4px;align-items:center';
+    var fInp=document.createElement('input');fInp.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:4px 7px;color:var(--text2);font-size:11px;font-family:var(--mono);outline:none';
+    fInp.placeholder='~/analysis/project/';fInp.value=an.analysisFolder||'';
+    fInp.onblur=function(){an.analysisFolder=fInp.value.trim();save();};
+    folderRow.appendChild(fInp);
+    if(window.epigraph&&window.epigraph.isElectron){
+      folderRow.appendChild(mkSmBtn('VS Code',function(){
+        if(!an.analysisFolder){toast('no folder set');return;}
+        window.epigraph.openPath(an.analysisFolder,'vscode').then(function(r){
+          if(!r.ok)toast('could not open — is the drive connected? ('+an.analysisFolder+')');
+        });
+      }));
+      folderRow.appendChild(mkSmBtn('Finder',function(){
+        if(!an.analysisFolder){toast('no folder set');return;}
+        window.epigraph.openPath(an.analysisFolder,'finder').then(function(r){
+          if(!r.ok)toast('could not open — is the drive connected?');
+        });
+      }));
+      var gcBtn=document.createElement('button');
+      gcBtn.style.cssText='background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:3px;color:var(--green);font-size:9px;font-family:var(--mono);cursor:pointer;padding:3px 6px';
+      gcBtn.textContent='git commit';
+      gcBtn.onclick=function(){var msg=prompt('Commit message:',an.name||'checkpoint');if(!msg)return;window.epigraph.gitCommit(an.analysisFolder,msg).then(function(r){toast(r.ok?'committed':'error: '+(r.error||''));});};
+      folderRow.appendChild(gcBtn);
+    }
+    cbody.appendChild(folderRow);
+
+    // Data folders
+    cbody.appendChild(mkLbl('data folders'));
+    if(!an.dataFolders)an.dataFolders=[];
+    an.dataFolders.forEach(function(df,di){
+      var row=document.createElement('div');row.style.cssText='display:flex;gap:3px;margin-bottom:3px';
+      var li=document.createElement('input');li.style.cssText='width:65px;flex:none;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:2px 5px;color:var(--text3);font-size:10px;font-family:var(--mono);outline:none';
+      li.placeholder='label';li.value=df.label||'';li.onblur=function(){df.label=li.value;save();};
+      var pi=document.createElement('input');pi.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:2px 5px;color:var(--text2);font-size:10px;font-family:var(--mono);outline:none';
+      pi.placeholder='/Volumes/LaCie2/...';pi.value=df.path||'';pi.onblur=function(){df.path=pi.value.trim();save();};
+      var rm=document.createElement('button');rm.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px';rm.textContent=String.fromCharCode(10005);
+      rm.onclick=function(){if(!confirm('Remove this data folder?'))return;an.dataFolders.splice(di,1);save();renderAnalysisSection(p,container);};
+      row.appendChild(li);row.appendChild(pi);row.appendChild(rm);cbody.appendChild(row);
+    });
+    var addDf=mkSmBtn('+ data folder',function(){an.dataFolders.push({label:'',path:''});save();renderAnalysisSection(p,container);});
+    addDf.style.marginTop='2px';cbody.appendChild(addDf);
+
+    // Attached files
+    cbody.appendChild(mkLbl('attached files (notebooks / macros / models)'));
+    if(!an.files)an.files=[];
+    an.files.forEach(function(f,fi){
+      var row=document.createElement('div');row.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:3px';
+      var nm=document.createElement('span');nm.style.cssText='flex:1;font-size:10px;color:var(--text2);font-family:var(--mono)';
+      var ext=f.name.split('.').pop().toLowerCase();
+      var icon=ext==='ipynb'?'[nb] ':ext==='py'?'[py] ':ext==='ijm'||ext==='macro'?'[fj] ':ext==='m'?'[ml] ':'[?] ';
+      nm.textContent=icon+f.name;
+      var rm=document.createElement('button');rm.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px';rm.textContent=String.fromCharCode(10005);
+      rm.onclick=function(){an.files.splice(fi,1);save();renderAnalysisSection(p,container);};
+      row.appendChild(nm);row.appendChild(rm);
+      if(window.epigraph&&window.epigraph.isElectron&&f.path){row.appendChild(mkSmBtn('open',function(){window.epigraph.openPath(f.path,'auto');}));}
+      cbody.appendChild(row);
+    });
+    var attachBtn=mkSmBtn('+ attach file',function(){
+      if(window.epigraph&&window.epigraph.isElectron){
+        window.epigraph.pickFile().then(function(r){if(!r.ok||r.cancelled)return;an.files.push({name:r.name,path:r.filePath});save();renderAnalysisSection(p,container);toast('attached: '+r.name);});
+      } else {
+        var inp=document.createElement('input');inp.type='file';inp.onchange=function(){if(!inp.files[0])return;an.files.push({name:inp.files[0].name,path:''});save();renderAnalysisSection(p,container);};inp.click();
+      }
+    });
+    attachBtn.style.marginTop='2px';cbody.appendChild(attachBtn);
+
+    // Pipeline steps
+    cbody.appendChild(mkLbl('pipeline steps'));
+    if(!an.steps)an.steps=[];
+    an.steps.forEach(function(step,si){
+      var sc=document.createElement('div');sc.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin-bottom:3px';
+      var sh=document.createElement('div');sh.style.cssText='display:flex;align-items:center;gap:4px;padding:4px 7px;cursor:pointer';
+      var ck=document.createElement('span');
+      ck.style.cssText='width:12px;height:12px;border:1.5px solid '+(step.done?'var(--green)':'var(--border2)')+';border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:9px;background:'+(step.done?'rgba(34,197,94,.15)':'transparent');
+      ck.textContent=step.done?String.fromCharCode(10003):'';
+      ck.onclick=function(e){e.stopPropagation();step.done=!step.done;save();renderAnalysisSection(p,container);};
+      var tl=document.createElement('input');tl.style.cssText='width:60px;flex:none;background:transparent;border:none;color:var(--amber);font-size:10px;font-family:var(--mono);font-weight:500;outline:none;padding:0';
+      tl.placeholder='tool';tl.value=step.tool||'';tl.onclick=function(e){e.stopPropagation();};tl.onblur=function(){step.tool=tl.value;save();};
+      var nm=document.createElement('input');nm.style.cssText='flex:1;background:transparent;border:none;color:var(--text);font-size:11px;outline:none;padding:0';
+      nm.placeholder='description';nm.value=step.name||'';nm.onclick=function(e){e.stopPropagation();};nm.onblur=function(){step.name=nm.value;save();};
+      var rm2=document.createElement('button');rm2.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px';rm2.textContent=String.fromCharCode(10005);
+      rm2.onclick=function(e){e.stopPropagation();if(!confirm('Remove this step?'))return;an.steps.splice(si,1);save();renderAnalysisSection(p,container);};
+      sh.appendChild(ck);sh.appendChild(tl);sh.appendChild(nm);sh.appendChild(rm2);
+      var sb=document.createElement('div');sb.style.cssText='padding:5px 8px;border-top:1px solid var(--border);display:none';
+      sh.onclick=function(){sb.style.display=sb.style.display==='none'?'block':'none';};
+      var nt=document.createElement('textarea');nt.style.cssText='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:4px 6px;color:var(--text2);font-size:11px;outline:none;resize:none;min-height:32px;line-height:1.5;margin-bottom:5px';
+      nt.placeholder='parameters, notes...';nt.value=step.notes||'';nt.onblur=function(){step.notes=nt.value;save();};
+      sb.appendChild(nt);
+      // Step file attachment
+      if(!step.files)step.files=[];
+      var sfList=document.createElement('div');
+      step.files.forEach(function(f,fi){
+        var row=document.createElement('div');row.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:2px';
+        var nm=document.createElement('span');nm.style.cssText='flex:1;font-size:10px;color:var(--text2);font-family:var(--mono)';
+        var ext=(f.name||'').split('.').pop().toLowerCase();
+        nm.textContent=(ext==='ipynb'?'[nb] ':ext==='py'?'[py] ':ext==='ijm'?'[fj] ':ext==='m'?'[ml] ':'[?] ')+f.name;
+        var rm=document.createElement('button');rm.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px';rm.textContent=String.fromCharCode(10005);
+        rm.onclick=function(){step.files.splice(fi,1);save();renderAnalysisSection(p,container);};
+        row.appendChild(nm);row.appendChild(rm);
+        if(window.epigraph&&window.epigraph.isElectron&&f.path){
+          var ob=document.createElement('button');ob.className='lbtn';ob.style.fontSize='9px';ob.textContent='open';
+          ob.onclick=function(){window.epigraph.openPath(f.path,'auto');};row.appendChild(ob);
+        }
+        sfList.appendChild(row);
+      });
+      sb.appendChild(sfList);
+      var sfBtn=document.createElement('button');sfBtn.className='lbtn';sfBtn.style.fontSize='9px';sfBtn.textContent='+ attach file to step';
+      sfBtn.onclick=function(){
+        if(window.epigraph&&window.epigraph.isElectron){
+          window.epigraph.pickFile().then(function(r){if(!r.ok||r.cancelled)return;if(!step.files)step.files=[];step.files.push({name:r.name,path:r.filePath});save();renderAnalysisSection(p,container);});
+        } else {
+          var inp=document.createElement('input');inp.type='file';inp.onchange=function(){if(!inp.files[0])return;if(!step.files)step.files=[];step.files.push({name:inp.files[0].name,path:''});save();renderAnalysisSection(p,container);};inp.click();
+        }
+      };
+      sb.appendChild(sfBtn);
+      sc.appendChild(sh);sc.appendChild(sb);cbody.appendChild(sc);
+    });
+    var tbRow=document.createElement('div');tbRow.style.cssText='display:flex;gap:3px;flex-wrap:wrap;margin-top:3px';
+    ['FIJI','Cellpose','Python','MATLAB','PIVlab','napari','other'].forEach(function(t){
+      var b=mkSmBtn('+ '+t,function(tool){return function(){an.steps.push({tool:tool,name:'',done:false,notes:''});save();renderAnalysisSection(p,container);};}(t));
+      tbRow.appendChild(b);
+    });
+    cbody.appendChild(tbRow);
+
+    // GitHub
+    if(window.epigraph&&window.epigraph.isElectron){
+      cbody.appendChild(mkLbl('github (private backup)'));
+      var ghRow=document.createElement('div');ghRow.style.cssText='display:flex;gap:3px;align-items:center';
+      var ghInp=document.createElement('input');ghInp.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:2px 6px;color:var(--text2);font-size:10px;font-family:var(--mono);outline:none';
+      ghInp.placeholder='https://github.com/user/repo';ghInp.value=an.githubRepo||'';ghInp.onblur=function(){an.githubRepo=ghInp.value.trim();save();};
+      var pushBtn=document.createElement('button');pushBtn.style.cssText='background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:3px;color:var(--green);font-size:9px;font-family:var(--mono);cursor:pointer;padding:2px 6px';pushBtn.textContent='push';
+      pushBtn.onclick=function(){
+        if(!an.analysisFolder||!an.githubRepo){toast('need folder and repo');return;}
+        window.epigraph.gitPush(an.analysisFolder,an.githubRepo,an.gitToken).then(function(r){toast(r.ok?'pushed':'error: '+(r.error||''));});
+      };
+      ghRow.appendChild(ghInp);ghRow.appendChild(pushBtn);cbody.appendChild(ghRow);
+    }
+
+    card.appendChild(chdr);card.appendChild(cbody);container.appendChild(card);
+  });
 }
 
-// ── CTX ──
+
 function cx_edit(){document.getElementById('ctx').style.display='none';if(ctxId)openEdit(ctxId);}
 function cx_note(){document.getElementById('ctx').style.display='none';if(ctxId){selId=ctxId;addNote(ctxId);}}
 function cx_del(){
@@ -2914,7 +2916,7 @@ function renderFeedSettings(){
   fileInp.onchange=function(){importData(fileInp);};
   dtRow.appendChild(fileInp);
 
-  dtRow.appendChild(mkBtn('reset all',resetData,'color:var(--red);border-color:rgba(239,68,68,.3)'));
+  
   panel.appendChild(dtRow);
 }
 
@@ -2938,7 +2940,7 @@ function initResize(){
       if(!dragging)return;
       var dx=e.clientX-startX;
       var newW=side==='left'?startW+dx:startW-dx;
-      newW=Math.max(0,Math.min(900,newW));
+      newW=Math.max(180,Math.min(500,newW));
       panel.style.width=newW+'px';
     });
     window.addEventListener('mouseup',function(){

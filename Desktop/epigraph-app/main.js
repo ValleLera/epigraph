@@ -28,7 +28,7 @@ function createWindow() {
   })
   win.webContents.session.clearCache()
   win.loadFile('index.html')
-  // win.webContents.openDevTools()
+  win.webContents.openDevTools()
 }
 
 // ── FILE I/O ──────────────────────────────────────────────────────────────────
@@ -94,6 +94,19 @@ ipcMain.handle('pick-image', async () => {
   } catch (e) { return { ok: false, error: e.message } }
 })
 
+ipcMain.handle('pick-file', async () => {
+  const { filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Attach File',
+    filters: [
+      { name: 'Analysis files', extensions: ['ipynb','py','r','m','ijm','macro','txt','csv','json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  })
+  if (!filePaths || !filePaths[0]) return { ok: false, cancelled: true }
+  return { ok: true, filePath: filePaths[0], name: require('path').basename(filePaths[0]) }
+})
+
 ipcMain.handle('pick-pdf', async () => {
   const { filePaths } = await dialog.showOpenDialog(win, {
     title: 'Attach PDF',
@@ -109,20 +122,31 @@ ipcMain.handle('pick-pdf', async () => {
 ipcMain.handle('open-path', async (event, filePath, mode) => {
   try {
     const expanded = filePath.replace(/^~/, app.getPath('home'))
+    const openInVSCode = (p) => {
+      // Use open -a which works without code in PATH
+      exec(`open -a "Visual Studio Code" "${p}"`, (err) => {
+        if (err) {
+          // Fallback to vscode:// protocol
+          shell.openExternal('vscode://file/' + p.replace(/ /g, '%20'))
+        }
+      })
+    }
     if (mode === 'vscode') {
-      exec(`code "${expanded}"`)
+      openInVSCode(expanded)
     } else if (mode === 'finder') {
-      shell.openPath(expanded)
+      await shell.openPath(expanded)
     } else {
-      // Auto: if it's a .ipynb or .py file, open in VS Code; else Finder
-      if (expanded.match(/\.(ipynb|py|r|m|jl)$/i)) {
-        exec(`code "${expanded}"`)
+      if (expanded.match(/\.(ipynb|py|r|m|jl|js|ts|json)$/i)) {
+        openInVSCode(expanded)
       } else {
-        shell.openPath(expanded)
+        await shell.openPath(expanded)
       }
     }
     return { ok: true }
-  } catch (e) { return { ok: false, error: e.message } }
+  } catch (e) { 
+    console.error('open-path error:', e)
+    return { ok: false, error: e.message } 
+  }
 })
 
 // ── GIT OPERATIONS ────────────────────────────────────────────────────────────
