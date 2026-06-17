@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('epigraph', {
   // Data
@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('epigraph', {
   gitStatus:   (folder)     => ipcRenderer.invoke('git-status', folder),
   gitCommit:   (folder, msg)=> ipcRenderer.invoke('git-commit', folder, msg),
   gitPush:     (folder, url, token) => ipcRenderer.invoke('git-push', folder, url, token),
+
+  // Get native filesystem path from a File object (Electron 32+ requires webUtils)
+  getFilePath: (file) => webUtils.getPathForFile(file),
 
   // PDF import + sync
   pdfExtractDoi:        (p)        => ipcRenderer.invoke('pdf-extract-doi', p),

@@ -185,7 +185,8 @@ ipcMain.handle('open-path', async (event, filePath, mode) => {
     if (mode === 'vscode') {
       openInVSCode(expanded)
     } else if (mode === 'finder') {
-      await shell.openPath(expanded)
+      const err = await shell.openPath(expanded)
+      if (err) return { ok: false, error: err }
     } else {
       if (expanded.match(/\.(ipynb|py|r|m|jl|js|ts|json)$/i)) {
         openInVSCode(expanded)
