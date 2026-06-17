@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('epigraph', {
   saveData:    (data)       => ipcRenderer.invoke('save-data', data),
   exportData:  (data)       => ipcRenderer.invoke('export-data', data),
   importData:  ()           => ipcRenderer.invoke('import-data'),
+  backupNow:   ()           => ipcRenderer.invoke('backup-now'),
 
   // Files
   pickImage:   ()           => ipcRenderer.invoke('pick-image'),

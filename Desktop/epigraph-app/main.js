@@ -25,6 +25,20 @@ function getDataPath() {
   return path.join(__dirname, 'epigraph_data.json')
 }
 
+function getBackupDir() {
+  return path.join(path.dirname(getDataPath()), 'backups')
+}
+
+function doSnapshot(label) {
+  const dataPath = getDataPath()
+  if (!fs.existsSync(dataPath)) return { ok: false, error: 'no data file' }
+  const backupDir = getBackupDir()
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true })
+  const dest = path.join(backupDir, `epigraph_data_${label}.json`)
+  fs.copyFileSync(dataPath, dest)
+  return { ok: true, path: dest }
+}
+
 let win
 
 function createWindow() {
@@ -51,7 +65,20 @@ function createWindow() {
 ipcMain.handle('load-data', () => {
   const dataPath = getDataPath()
   try {
-    if (fs.existsSync(dataPath)) return JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
+    if (fs.existsSync(dataPath)) {
+      const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
+      // daily snapshot before any writes happen this session
+      const today = new Date().toISOString().slice(0, 10)
+      const backupDir = getBackupDir()
+      const todaySnap = path.join(backupDir, `epigraph_data_${today}.json`)
+      if (!fs.existsSync(todaySnap)) {
+        try {
+          if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true })
+          fs.copyFileSync(dataPath, todaySnap)
+        } catch (e) { console.error('daily snapshot failed:', e) }
+      }
+      return data
+    }
     const devPath = path.join(__dirname, 'epigraph_data.json')
     if (app.isPackaged && fs.existsSync(devPath)) {
       const data = JSON.parse(fs.readFileSync(devPath, 'utf-8'))
@@ -67,7 +94,9 @@ ipcMain.handle('save-data', (event, data) => {
   try {
     const dir = path.dirname(dataPath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8')
+    const tmpPath = dataPath + '.tmp'
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8')
+    fs.renameSync(tmpPath, dataPath)
     return { ok: true }
   } catch (e) { return { ok: false, error: e.message } }
 })
@@ -81,6 +110,13 @@ ipcMain.handle('export-data', async (event, data) => {
   if (!filePath) return { ok: false, cancelled: true }
   try { fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8'); return { ok: true, filePath } }
   catch (e) { return { ok: false, error: e.message } }
+})
+
+ipcMain.handle('backup-now', () => {
+  const now = new Date()
+  const date = now.toISOString().slice(0, 10)
+  const hhmm = now.toTimeString().slice(0, 5).replace(':', '')
+  return doSnapshot(`${date}_${hhmm}`)
 })
 
 ipcMain.handle('import-data', async () => {

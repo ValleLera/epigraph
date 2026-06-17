@@ -2101,6 +2101,13 @@ async function exportData(){
     toast('exported');
   }
 }
+async function backupNow(){
+  if(!window.epigraph||!window.epigraph.isElectron)return;
+  var r=await window.epigraph.backupNow();
+  if(r.ok)toast('backup saved: '+r.path.split('/').pop());
+  else toast('backup failed: '+(r.error||''));
+}
+
 function triggerImport(){
   var el=document.getElementById('import-file-input');
   if(el)el.click();
@@ -2942,7 +2949,11 @@ function renderFeedSettings(){
   fileInp.onchange=function(){importData(fileInp);};
   dtRow.appendChild(fileInp);
 
-  
+  if(window.epigraph&&window.epigraph.isElectron){
+    var bkBtn=mkBtn('\u{1F4BE} backup now',backupNow);
+    dtRow.appendChild(bkBtn);
+  }
+
   panel.appendChild(dtRow);
 }
 
