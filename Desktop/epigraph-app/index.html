@@ -73,6 +73,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .block-wrap [contenteditable]:empty:before{content:attr(placeholder);color:var(--text3);pointer-events:none;}
 [contenteditable]:focus{outline:none;}
 
+
+/* DAILY NOTES */
+.today-header{font-size:22px;font-weight:600;color:var(--text);margin-bottom:4px;font-family:var(--sans);}
+.today-date{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:14px;}
+.today-section{margin-bottom:14px;}
+.today-section-title{font-size:9px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.checklist-item{display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.checklist-item:last-child{border-bottom:none;}
+.checklist-item.done .ci-text{text-decoration:line-through;opacity:.4;}
+.ci-box{width:14px;height:14px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s;}
+.ci-box.checked{background:var(--green);border-color:var(--green);color:#fff;}
+.ci-text{font-size:12px;color:var(--text);line-height:1.5;flex:1;outline:none;background:transparent;border:none;font-family:var(--sans);resize:none;padding:0;}
+.ci-text:focus{color:var(--text);}
+.today-add-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 9px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;margin-top:4px;}
+.today-add-input:focus{border-color:var(--border2);}
+.day-card{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px 10px;margin-bottom:6px;cursor:pointer;}
+.day-card:hover{border-color:var(--border2);}
+.day-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.day-card-date{font-size:11px;font-family:var(--mono);color:var(--amber);}
+.day-card-stats{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.day-card-preview{font-size:11px;color:var(--text3);line-height:1.5;}
+
 /* TOP */
 #top{display:flex;align-items:center;gap:10px;padding:0 14px;height:44px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10;position:relative;}
 .logo{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--amber);letter-spacing:.04em;}
@@ -343,6 +365,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:7px 14px;font-size:11px;font-family:var(--mono);color:var(--text2);opacity:0;transition:opacity .25s;pointer-events:none;z-index:2000;}
 #toast.show{opacity:1;}
 .empty{text-align:center;padding:36px 16px;color:var(--text3);font-size:11px;font-family:var(--mono);line-height:2;}
+
 </style>
 </head>
 <body>
@@ -447,6 +470,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <div class="rtab on" id="rt-claim" onclick="rtab('claim')">claim</div>
     <div class="rtab" id="rt-library" onclick="rtab('library')">library</div>
     <div class="rtab" id="rt-projects" onclick="rtab('projects')">projects</div>
+    <div class="rtab" id="rt-today" onclick="rtab('today')">today</div>
     <div class="rtab" id="rt-notes" onclick="rtab('notes')">notes</div>
     <div class="rtab" id="rt-overview" onclick="rtab('overview')">overview</div>
   </div>
@@ -540,15 +564,33 @@ async function init(){
       var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
       if(sv)try{p=JSON.parse(sv);}catch(e){}
     }
-    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();}
+    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};}
     else{S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);}
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
     document.getElementById('stklbl').textContent='day '+S.streak;
-    if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
+    if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
   updateStats();renderPills();renderFeed();initMap();renderMap();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
+  // Start PDF watcher
+  if(window.epigraph&&window.epigraph.isElectron){
+    var _wf=(S.settings&&S.settings.pdfFolder)||'~/Documents/ResearchPDFs';
+    window.epigraph.startPdfWatcher(_wf);
+    window.epigraph.onPdfChanged(onPdfFileChanged);
+  }
+  // Body-level drag-drop for PDF import (only fires when no modal open)
+  document.body.addEventListener('dragover',function(e){
+    var items=Array.from(e.dataTransfer.items||[]);
+    if(items.some(function(i){return i.type==='application/pdf'||(i.kind==='file');})){e.preventDefault();}
+  });
+  document.body.addEventListener('drop',function(e){
+    if(document.getElementById('overlay').classList.contains('open'))return;
+    var files=Array.from(e.dataTransfer.files).filter(function(f){return f.name.toLowerCase().endsWith('.pdf');});
+    if(!files.length)return;
+    e.preventDefault();
+    dropImportPdf(files[0].path||files[0].name);
+  });
 }
 function dc(o){return JSON.parse(JSON.stringify(o));}
 function save(){
@@ -733,6 +775,7 @@ function renderRight(){
   if(rightTab==='claim')renderClaimDetail();
   else if(rightTab==='library')renderLibrary();
   else if(rightTab==='projects')renderProjects();
+  else if(rightTab==='today')renderToday();
   else if(rightTab==='notes')renderNotes();
   else if(rightTab==='overview')renderOverview();
 
@@ -837,9 +880,11 @@ function renderLibrary(){
   // Controls
   html+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">';
   html+='<input id="lib-search" type="text" placeholder="search..." style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;" value="'+esc(libSearch)+'">';
-  html+='<button class="lbtn" id="lib-import-btn">+ import .bib</button>';
   html+='<button class="lbtn" id="lib-add-btn">+ add</button>';
   html+='</div>';
+
+  // PDF drop zone
+  html+='<div id="lib-pdf-drop" style="border:2px dashed var(--border2);border-radius:5px;padding:9px 14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s">drop PDF here to import · or click to pick file</div>';
 
   // Tag filters
   html+='<div class="tag-filter">';
@@ -866,9 +911,9 @@ function renderLibrary(){
       var tags=(p.tags||[]).map(function(t){return'<span class="lib-tag">'+esc(t)+'</span>';}).join('');
       var claimed=(p.claims||[]).length?'<span class="lib-claimed">'+(p.claims.length)+'✓</span>':'';
       html+='<tr class="lib-row" data-pid="'+esc(p.id)+'">';
-      var statusColor={unread:'var(--text3)',reading:'var(--amber)',done:'var(--green)','key paper':'var(--purple)'}[p.readStatus||'unread']||'var(--text3)';
       var pdfBadge=p.pdfPath?'<span title="PDF attached" style="color:var(--amber);font-size:9px;font-family:var(--mono);margin-right:3px">pdf</span>':'';
-      html+='<td class="lib-year">'+pdfBadge+'<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:'+statusColor+';margin-right:4px;vertical-align:middle"></span>'+esc(p.year||'?')+'</td>';
+      var bibBadge='<span title="copy BibTeX" style="cursor:pointer;color:var(--cyan);font-size:9px;font-family:var(--mono);margin-right:3px" onclick="event.stopPropagation();copyBibtexById(\''+p.id+'\')">bib</span>';
+      html+='<td class="lib-year">'+bibBadge+pdfBadge+esc(p.year||'?')+'</td>';
       html+='<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>';
       html+='<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>';
       html+='<td class="lib-title-cell">'+esc(p.title.slice(0,55))+(p.title.length>55?'...':'')+' '+doi+'</td>';
@@ -885,11 +930,31 @@ function renderLibrary(){
   body.innerHTML=html;
 
   // Attach events after innerHTML
+  var dropZone=document.getElementById('lib-pdf-drop');
+  if(dropZone){
+    dropZone.addEventListener('dragover',function(e){
+      e.preventDefault();dropZone.style.borderColor='var(--amber)';dropZone.style.background='rgba(251,191,36,.06)';
+    });
+    dropZone.addEventListener('dragleave',function(){
+      dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
+    });
+    dropZone.addEventListener('drop',function(e){
+      e.preventDefault();dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
+      var files=Array.from(e.dataTransfer.files).filter(function(f){return f.name.toLowerCase().endsWith('.pdf');});
+      if(!files.length){toast('drop a PDF file');return;}
+      dropImportPdf(files[0].path||files[0].name);
+    });
+    dropZone.onclick=function(){
+      if(window.epigraph&&window.epigraph.isElectron){
+        window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;dropImportPdf(r.filePath);});
+      }
+    };
+  }
+
   var si=document.getElementById('lib-search');
   if(si)si.oninput=function(){libSearchUpdate(si.value);};
 
-  var ib=document.getElementById('lib-import-btn');
-  if(ib)ib.onclick=openImport;
+
 
   var ab=document.getElementById('lib-add-btn');
   if(ab)ab.onclick=openAddPaper;
@@ -903,6 +968,8 @@ function libSearchUpdate(v){libSearch=v;renderLibrary();}
 function setTagEl(el){setTagFilter(el.dataset.tag||'');}
 function setLibSort(k){if(libSort===k)libSortDir*=-1;else{libSort=k;libSortDir=-1;}renderLibrary();}
 function setTagFilter(t){libTagFilter=t;renderLibrary();}
+
+// ── ZOTERO HIGHLIGHTS ──
 
 function selectLibPaper(id){
   var p=(S.library||[]).find(function(x){return x.id===id;});if(!p)return;
@@ -942,18 +1009,33 @@ function selectLibPaper(id){
       var openPdfBtn=document.createElement('button');openPdfBtn.className='lbtn';openPdfBtn.style.cssText='font-size:10px;margin-left:4px';openPdfBtn.textContent='open in Preview';
       openPdfBtn.onclick=function(){window.epigraph.openPath(p.pdfPath,'finder');};
       pdfHdr.appendChild(openPdfBtn);
+      var syncNowBtn=document.createElement('button');syncNowBtn.className='lbtn';syncNowBtn.style.cssText='font-size:10px;margin-left:4px';syncNowBtn.textContent='re-sync';
+      syncNowBtn.onclick=function(){syncNowBtn.textContent='syncing…';syncNowBtn.disabled=true;syncPaperAnnotations(p).then(function(){selectLibPaper(id);});};
+      pdfHdr.appendChild(syncNowBtn);
     }
     pdfHdr.appendChild(rmPdf);
     pdfSec.appendChild(pdfHdr);
 
-    // Inline PDF viewer via PDF.js CDN
-    var pdfFrame=document.createElement('iframe');
-    var pdfUrl=window.epigraph&&window.epigraph.isElectron?
-      'file://'+p.pdfPath :
-      'https://mozilla.github.io/pdf.js/web/viewer.html?file='+encodeURIComponent(p.pdfPath);
-    pdfFrame.src=pdfUrl;
-    pdfFrame.style.cssText='width:100%;height:500px;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;background:white';
-    pdfSec.appendChild(pdfFrame);
+    // PDF viewer - open in system viewer (Preview on Mac)
+    var pdfViewBtn=document.createElement('div');
+    pdfViewBtn.style.cssText='border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:20px;text-align:center;background:var(--bg3);cursor:pointer';
+    var pdfViewInner=document.createElement('div');
+    pdfViewInner.style.cssText='font-size:12px;color:var(--text2);font-family:var(--mono)';
+    pdfViewInner.textContent=p.pdfPath.split('/').pop();
+    var pdfOpenBtn=document.createElement('button');
+    pdfOpenBtn.className='lbtn';pdfOpenBtn.style.cssText='margin-top:8px;font-size:11px';
+    pdfOpenBtn.textContent='open PDF in Preview';
+    pdfOpenBtn.onclick=function(){
+      if(window.epigraph&&window.epigraph.isElectron){
+        window.epigraph.openPath(p.pdfPath,'finder').then(function(r){
+          if(!r.ok)toast('cannot open — is the file still at this path?');
+        });
+      } else {
+        window.open(p.pdfPath,'_blank');
+      }
+    };
+    pdfViewBtn.appendChild(pdfViewInner);pdfViewBtn.appendChild(pdfOpenBtn);
+    pdfSec.appendChild(pdfViewBtn);
   } else {
     var pdfDrop=document.createElement('div');
     pdfDrop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
@@ -981,37 +1063,40 @@ function selectLibPaper(id){
   }
   wrap.appendChild(pdfSec);
 
+  // Annotations from Preview
+  var annots=p.annotations||[];
+  var hlCount=annots.filter(function(a){return a.type==='Highlight';}).length;
+  var noteCount=annots.filter(function(a){return!!a.content;}).length;
+  if(annots.length){
+    var annotSec=document.createElement('div');annotSec.style.marginBottom='12px';
+    var annotToggle=document.createElement('div');
+    annotToggle.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;cursor:pointer;user-select:none';
+    function annotLabel(c){return hlCount+' highlight'+(hlCount!==1?'s':'')+(noteCount?' · '+noteCount+' note'+(noteCount!==1?'s':''):'')+' '+(c?'▸':'▾');}
+    var annotCollapsed=false;annotToggle.textContent=annotLabel(false);
+    var annotList=document.createElement('div');
+    annotList.style.cssText='display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto';
+    annotToggle.onclick=function(){annotCollapsed=!annotCollapsed;annotList.style.display=annotCollapsed?'none':'flex';annotToggle.textContent=annotLabel(annotCollapsed);};
+    var sorted=annots.slice().sort(function(a,b){return a.page-b.page||a.y0-b.y0;});
+    sorted.forEach(function(a){
+      if(!a.text&&!a.content)return;
+      var card=document.createElement('div');
+      var c=annotRgb(a.color);
+      card.style.cssText='border-left:3px solid '+c+';padding:4px 8px;background:var(--bg3);border-radius:0 3px 3px 0;font-size:11px;line-height:1.5';
+      var inner='';
+      if(a.text)inner+='<span style="color:var(--text1)">'+esc(a.text.slice(0,220))+'</span>';
+      if(a.content)inner+='<div style="margin-top:3px;color:var(--amber);font-size:10px">▸ '+esc(a.content.slice(0,180))+'</div>';
+      inner+='<div style="margin-top:2px;color:var(--text3);font-size:9px;font-family:var(--mono)">p.'+a.page+'</div>';
+      card.innerHTML=inner;
+      annotList.appendChild(card);
+    });
+    annotSec.appendChild(annotToggle);annotSec.appendChild(annotList);
+    wrap.appendChild(annotSec);
+  }
+
   function mkField(labelTxt, el){
     var lbl=document.createElement('label');lbl.textContent=labelTxt;wrap.appendChild(lbl);
     wrap.appendChild(el);
   }
-
-  // Read status
-  var statusEl=document.createElement('select');
-  ['unread','reading','done','key paper'].forEach(function(s){
-    var opt=document.createElement('option');opt.value=s;opt.textContent=s;
-    if((p.readStatus||'unread')===s)opt.selected=true;
-    statusEl.appendChild(opt);
-  });
-  mkField('read status', statusEl);
-
-  // Your summary
-  var summaryEl=document.createElement('textarea');
-  summaryEl.rows=3;summaryEl.placeholder='your summary in your own words — what does this paper mean for your work?';
-  summaryEl.value=p.mySummary||'';
-  mkField('your summary', summaryEl);
-
-  // Key finding
-  var findingEl=document.createElement('input');
-  findingEl.type='text';findingEl.placeholder='one sentence — the main claim this paper makes';
-  findingEl.value=p.keyFinding||'';
-  mkField('key finding', findingEl);
-
-  // Your notes
-  var notesEl=document.createElement('textarea');
-  notesEl.rows=3;notesEl.placeholder='methods to replicate, figures that matter, questions it raises, disagreements...';
-  notesEl.value=p.myNotes||'';
-  mkField('your notes', notesEl);
 
   // Tags
   var tagsEl=document.createElement('input');
@@ -1036,15 +1121,13 @@ function selectLibPaper(id){
   delBtn.onclick=function(){deleteLibPaper(id);};
   var saveBtn=document.createElement('button');saveBtn.className='mbtn ok';saveBtn.textContent='save';
   saveBtn.onclick=function(){
-    p.readStatus=statusEl.value;
-    p.mySummary=summaryEl.value.trim();
-    p.keyFinding=findingEl.value.trim();
-    p.myNotes=notesEl.value.trim();
     p.tags=tagsEl.value.split(',').map(function(t){return t.trim();}).filter(Boolean);
     p.claims=claimEl.value?[claimEl.value]:[];
     save();closeModal();renderLibrary();toast('paper saved');
   };
-  btns.appendChild(closeBtn);btns.appendChild(delBtn);btns.appendChild(saveBtn);
+  var bibBtn=document.createElement('button');bibBtn.className='mbtn';bibBtn.textContent='copy BibTeX';
+  bibBtn.onclick=function(){copyBibtex(p);};
+  btns.appendChild(closeBtn);btns.appendChild(delBtn);btns.appendChild(bibBtn);btns.appendChild(saveBtn);
   wrap.appendChild(btns);
 
   // Use DOM-based modal
@@ -1059,102 +1142,6 @@ function deleteLibPaper(id){
   if(!confirm('Remove from library?'))return;
   S.library=(S.library||[]).filter(function(x){return x.id!==id;});
   save();closeModal();renderLibrary();updateStats();toast('removed');
-}
-
-function openImport(){
-  modal('<h3>import .bib file</h3>'
-    +'<p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:10px">Paste the contents of your .bib file below. Zotero: File → Export Library → BibTeX.<br>Duplicate DOIs will be skipped.</p>'
-    +'<textarea id="bib-text" rows="10" style="font-family:var(--mono);font-size:10px;" placeholder="@article{...}"></textarea>'
-    +'<div id="import-status" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:6px;min-height:16px;"></div>'
-    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="doBibImport()">import</button></div>');
-}
-
-function doBibImport(){
-  var text=document.getElementById('bib-text').value;
-  var status=document.getElementById('import-status');
-  if(!text.trim()){status.textContent='paste .bib content first';return;}
-  status.textContent='parsing…';
-  var parsed=parseBib(text);
-  var added=0,skipped=0;
-  var existingDois=new Set((S.library||[]).map(function(p){return(p.doi||'').toLowerCase();}));
-  parsed.forEach(function(p){
-    if(p.doi&&existingDois.has(p.doi.toLowerCase())){skipped++;return;}
-    if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
-    S.library.push(p);added++;
-    if(p.doi)existingDois.add(p.doi.toLowerCase());
-  });
-  save();updateStats();
-  status.textContent='done: '+added+' added, '+skipped+' skipped (duplicate DOI)';
-  status.style.color='var(--green)';
-  setTimeout(function(){closeModal();renderLibrary();},1200);
-}
-
-function parseBib(text){
-  var results=[];
-  var entries=[];
-  // Split on @ that starts a new entry
-  var raw=text.split(/\n(?=@)/);
-  raw.forEach(function(block){
-    block=block.trim();
-    if(!block.startsWith('@'))return;
-    var typeM=block.match(/^@(\w+)\s*\{/i);
-    if(!typeM)return;
-    var type=typeM[1].toLowerCase();
-    if(type==='comment'||type==='preamble'||type==='string')return;
-    entries.push(block);
-  });
-
-  entries.forEach(function(entry){
-    try{
-      // Extract field value - handles {value} and "value" with nested braces
-      function getF(field){
-        var re=new RegExp(field+'\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*[,\n]','i');
-        var m=entry.match(re);
-        if(m)return m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim();
-        re=new RegExp(field+'\\s*=\\s*"([\\s\\S]*?)"\\s*[,\n]','i');
-        m=entry.match(re);
-        if(m)return m[1].replace(/\s+/g,' ').trim();
-        // try without trailing comma (last field)
-        re=new RegExp(field+'\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*\\}','i');
-        m=entry.match(re);
-        if(m)return m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim();
-        return '';
-      }
-      var title=getF('title');
-      if(!title)return;
-      var authors=getF('author')||getF('authors')||'';
-      var year=getF('year')||'';
-      var journal=getF('journal')||getF('booktitle')||getF('publisher')||'';
-      var doi=getF('doi')||'';
-      var abstract=getF('abstract')||'';
-      // Parse author list
-      var authorList=authors.split(/\s+and\s+/i).map(function(a){return a.trim();}).filter(Boolean);
-      function lastNameFirst(a){
-        var parts=a.split(',');
-        return parts[0].trim();
-      }
-      var firstAuth=authorList[0]||'';
-      var lastAuth=authorList[authorList.length-1]||firstAuth;
-      var authsShort=authorList.slice(0,2).map(lastNameFirst).join(', ')+(authorList.length>2?' et al.':'');
-      results.push({
-        id:'lib_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-        title:title,
-        authors:authors,
-        authors_short:authsShort,
-        first_author:lastNameFirst(firstAuth),
-        last_author:lastNameFirst(lastAuth),
-        last_author_short:lastNameFirst(lastAuth).slice(0,20),
-        year:year,
-        journal:journal,
-        journal_short:journal.slice(0,25),
-        doi:doi,
-        abstract:abstract.slice(0,500),
-        tags:[],claims:[],
-        imported:new Date().toISOString()
-      });
-    }catch(e){}
-  });
-  return results;
 }
 
 function openAddPaper(){
@@ -1176,7 +1163,7 @@ function saveAddPaper(){
   var tags=v('ap-tags').split(',').map(function(t){return t.trim();}).filter(Boolean);
   var cid=v('ap-claim');
   var p={id:'lib_'+Date.now(),title:title,authors:authors,authors_short:authors.slice(0,30),first_author:authors.split(',')[0]||'',last_author:last,last_author_short:last.slice(0,20),year:v('ap-year'),journal:v('ap-journal'),journal_short:v('ap-journal').slice(0,20),doi:v('ap-doi'),abstract:'',tags:tags,claims:cid?[cid]:[],imported:new Date().toISOString()};
-  if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];S.library.push(p);save();closeModal();renderLibrary();updateStats();toast('paper added');
+  if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};S.library.push(p);save();closeModal();renderLibrary();updateStats();toast('paper added');
 }
 
 // ── PROJECTS ──
@@ -2015,9 +2002,7 @@ function globalSearch(q){
   // Library
   (S.library||[]).forEach(function(p){
     if((p.title||'').toLowerCase().includes(q)||
-       (p.authors||'').toLowerCase().includes(q)||
-       (p.mySummary||'').toLowerCase().includes(q)||
-       (p.myNotes||'').toLowerCase().includes(q)){
+       (p.authors||'').toLowerCase().includes(q)){
       results.push({type:'library',label:p.title,sub:(p.authors_short||'')+' '+p.year,
         action:function(){rtab('library');selectLibPaper(p.id);}});
     }
@@ -2404,10 +2389,31 @@ function renderAnalysisSection(p, container) {
       var gcBtn=document.createElement('button');
       gcBtn.style.cssText='background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:3px;color:var(--green);font-size:9px;font-family:var(--mono);cursor:pointer;padding:3px 6px';
       gcBtn.textContent='git commit';
-      gcBtn.onclick=function(){var msg=prompt('Commit message:',an.name||'checkpoint');if(!msg)return;window.epigraph.gitCommit(an.analysisFolder,msg).then(function(r){toast(r.ok?'committed':'error: '+(r.error||''));});};
+      // inline commit UI
+      var cRow=document.createElement('div');cRow.style.cssText='display:none;gap:4px;align-items:center;margin-top:4px';
+      var cInp=document.createElement('input');cInp.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--amber);border-radius:3px;padding:3px 7px;color:var(--text);font-size:11px;font-family:var(--mono);outline:none';cInp.placeholder='commit message...';
+      var cDo=document.createElement('button');cDo.style.cssText='background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:3px;color:var(--green);font-size:10px;font-family:var(--mono);cursor:pointer;padding:3px 8px';cDo.textContent='commit';
+      var cCan=document.createElement('button');cCan.style.cssText='background:none;border:1px solid var(--border);border-radius:3px;color:var(--text3);font-size:10px;font-family:var(--mono);cursor:pointer;padding:3px 8px';cCan.textContent='cancel';
+      cRow.appendChild(cInp);cRow.appendChild(cDo);cRow.appendChild(cCan);
+      cCan.onclick=function(){cRow.style.display='none';gcBtn.style.display='';};
+      cDo.onclick=function(){
+        var msg=cInp.value.trim();if(!msg)return;
+        cRow.style.display='none';gcBtn.style.display='';
+        gcBtn.textContent='...';gcBtn.disabled=true;
+        window.epigraph.gitCommit(an.analysisFolder,msg).then(function(r){
+          gcBtn.textContent='git commit';gcBtn.disabled=false;
+          toast(r.ok?String.fromCharCode(10003)+' committed: '+msg:String.fromCharCode(10005)+' error: '+(r.error||''));
+        });
+      };
+      gcBtn.onclick=function(){
+        cInp.value=an.name||'checkpoint';
+        cRow.style.display='flex';gcBtn.style.display='none';
+        setTimeout(function(){cInp.focus();cInp.select();},50);
+      };
       folderRow.appendChild(gcBtn);
-    }
-    cbody.appendChild(folderRow);
+      }
+      cbody.appendChild(folderRow);
+      if(window.epigraph&&window.epigraph.isElectron)cbody.appendChild(cRow);
 
     // Data folders
     cbody.appendChild(mkLbl('data folders'));
@@ -2617,7 +2623,7 @@ function broadQueries(){
   });
   // From library titles and journals — broader net
   (S.library||[]).forEach(function(p){
-    var text=(p.title+' '+(p.journal||'')+' '+(p.myNotes||'')+' '+(p.mySummary||'')).toLowerCase();
+    var text=(p.title+' '+(p.journal||'')).toLowerCase();
     text.replace(/[^a-z\s]/g,'').split(/\s+/).forEach(function(w){
       if(w.length>4&&!stopwords.has(w))wordFreq[w]=(wordFreq[w]||0)+1;
     });
@@ -2960,7 +2966,7 @@ function initResize(){
       if(!dragging)return;
       var dx=e.clientX-startX;
       var newW=side==='left'?startW+dx:startW-dx;
-      newW=Math.max(180,Math.min(500,newW));
+      newW=side==='left'?Math.max(180,Math.min(500,newW)):Math.max(300,Math.min(window.innerWidth-300,newW));
       panel.style.width=newW+'px';
     });
     window.addEventListener('mouseup',function(){
@@ -3012,8 +3018,340 @@ async function scanPdfsToLibrary(folder, btn){
   btn.textContent=origText;btn.disabled=false;
 }
 
+
+// ── DAILY NOTES ──────────────────────────────────────────────────────────────
+function getTodayKey(){return new Date().toISOString().slice(0,10);}
+
+function getDayNote(dateKey){
+  if(!S.dailyNotes)S.dailyNotes={};
+  if(!S.dailyNotes[dateKey]){
+    S.dailyNotes[dateKey]={
+      date:dateKey,
+      focus:'',
+      checklist:[],
+      notes:''
+    };
+  }
+  return S.dailyNotes[dateKey];
+}
+
+function renderToday(){
+  var body=document.getElementById('rbody');
+  if(!S.dailyNotes)S.dailyNotes={};
+  var todayKey=getTodayKey();
+  var day=getDayNote(todayKey);
+  body.innerHTML='';
+
+  // Header
+  var hdr=document.createElement('div');
+  var now=new Date();
+  var dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var h2=document.createElement('div');h2.className='today-header';
+  h2.textContent=dayNames[now.getDay()];
+  var sub=document.createElement('div');sub.className='today-date';
+  sub.textContent=now.getDate()+' '+monthNames[now.getMonth()]+' '+now.getFullYear();
+  hdr.appendChild(h2);hdr.appendChild(sub);body.appendChild(hdr);
+
+  // Focus for today
+  var focusSec=document.createElement('div');focusSec.className='today-section';
+  var focusLbl=document.createElement('div');focusLbl.className='today-section-title';focusLbl.textContent='focus for today';
+  var focusInp=document.createElement('input');
+  focusInp.style.cssText='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 9px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none';
+  focusInp.placeholder='what is the one thing you want to accomplish today?';
+  focusInp.value=day.focus||'';
+  focusInp.oninput=function(){day.focus=focusInp.value;save();};
+  focusSec.appendChild(focusLbl);focusSec.appendChild(focusInp);body.appendChild(focusSec);
+
+  // Checklist
+  var clSec=document.createElement('div');clSec.className='today-section';
+  var clLbl=document.createElement('div');clLbl.className='today-section-title';clLbl.textContent='tasks';
+  clSec.appendChild(clLbl);
+
+  var clList=document.createElement('div');clList.id='checklist-list';
+  renderChecklist(day, clList);
+  clSec.appendChild(clList);
+
+  // Add task input
+  var addInp=document.createElement('input');addInp.className='today-add-input';
+  addInp.placeholder='+ add task (press Enter)';
+  addInp.onkeydown=function(e){
+    if(e.key==='Enter'&&addInp.value.trim()){
+      day.checklist.push({id:'ci_'+Date.now(),text:addInp.value.trim(),done:false});
+      save();addInp.value='';renderChecklist(day,clList);
+      setTimeout(function(){addInp.focus();},10);
+    }
+  };
+  clSec.appendChild(addInp);body.appendChild(clSec);
+
+  // Free notes
+  var notesSec=document.createElement('div');notesSec.className='today-section';
+  var notesLbl=document.createElement('div');notesLbl.className='today-section-title';notesLbl.textContent='notes';
+  var notesTA=document.createElement('textarea');
+  notesTA.style.cssText='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:7px 9px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;resize:none;min-height:80px;line-height:1.6';
+  notesTA.placeholder='anything else — observations, ideas, questions...';
+  notesTA.value=day.notes||'';
+  notesTA.oninput=function(){day.notes=notesTA.value;save();};
+  notesSec.appendChild(notesLbl);notesSec.appendChild(notesTA);body.appendChild(notesSec);
+
+  // Past days
+  var pastKeys=Object.keys(S.dailyNotes).filter(function(k){return k!==todayKey;}).sort().reverse();
+  if(pastKeys.length){
+    var pastSec=document.createElement('div');pastSec.className='today-section';
+    var pastLbl=document.createElement('div');pastLbl.className='today-section-title';
+    pastLbl.textContent='past days';
+    pastSec.appendChild(pastLbl);
+    pastKeys.slice(0,60).forEach(function(key){
+      var d=S.dailyNotes[key];
+      var card=document.createElement('div');card.className='day-card';
+      var ch=document.createElement('div');ch.className='day-card-header';
+      var dt=document.createElement('span');dt.className='day-card-date';dt.textContent=key;
+      var done=( d.checklist||[]).filter(function(c){return c.done;}).length;
+      var total=(d.checklist||[]).length;
+      var st=document.createElement('span');st.className='day-card-stats';
+      st.textContent=total?done+'/'+total+' done':'';
+      ch.appendChild(dt);ch.appendChild(st);card.appendChild(ch);
+      if(d.focus){
+        var fPreview=document.createElement('div');fPreview.className='day-card-preview';
+        fPreview.style.cssText='color:var(--text2);margin-bottom:2px';
+        fPreview.textContent=String.fromCharCode(8594)+' '+d.focus;
+        card.appendChild(fPreview);
+      }
+      var preview=(d.notes||'').slice(0,80);
+      if(preview){
+        var np=document.createElement('div');np.className='day-card-preview';np.textContent=preview+(d.notes.length>80?'...':'');card.appendChild(np);
+      }
+      // Click to expand past day
+      card.onclick=function(){renderPastDay(key,body);};
+      pastSec.appendChild(card);
+    });
+    body.appendChild(pastSec);
+  }
+}
+
+function renderChecklist(day, container){
+  container.innerHTML='';
+  if(!day.checklist)day.checklist=[];
+  // Show undone first, then done
+  var undone=day.checklist.filter(function(c){return!c.done;});
+  var done=day.checklist.filter(function(c){return c.done;});
+  undone.concat(done).forEach(function(item,i){
+    var row=document.createElement('div');
+    row.className='checklist-item'+(item.done?' done':'');
+    var box=document.createElement('div');box.className='ci-box'+(item.done?' checked':'');
+    box.textContent=item.done?String.fromCharCode(10003):'';
+    box.onclick=function(){item.done=!item.done;save();renderChecklist(day,container);};
+    var txt=document.createElement('textarea');txt.className='ci-text';
+    txt.value=item.text;txt.rows=1;
+    txt.style.cssText='flex:1;font-size:12px;color:var(--text);line-height:1.5;outline:none;background:transparent;border:none;font-family:var(--sans);resize:none;padding:0;overflow:hidden';
+    txt.oninput=function(){item.text=txt.value;txt.style.height='auto';txt.style.height=txt.scrollHeight+'px';save();};
+    // Delete on backspace when empty
+    txt.onkeydown=function(e){
+      if(e.key==='Backspace'&&txt.value===''){
+        day.checklist=day.checklist.filter(function(c){return c.id!==item.id;});
+        save();renderChecklist(day,container);
+      }
+    };
+    setTimeout(function(){txt.style.height='auto';txt.style.height=txt.scrollHeight+'px';},0);
+    var rm=document.createElement('button');rm.style.cssText='background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px;opacity:0';
+    rm.textContent=String.fromCharCode(10005);
+    row.addEventListener('mouseenter',function(){rm.style.opacity='1';});
+    row.addEventListener('mouseleave',function(){rm.style.opacity='0';});
+    rm.onclick=function(){day.checklist=day.checklist.filter(function(c){return c.id!==item.id;});save();renderChecklist(day,container);};
+    row.appendChild(box);row.appendChild(txt);row.appendChild(rm);
+    container.appendChild(row);
+  });
+}
+
+function renderPastDay(key, body){
+  var day=S.dailyNotes[key];if(!day)return;
+  body.innerHTML='';
+  var back=document.createElement('div');back.className='pj-detail-back';
+  back.textContent=String.fromCharCode(8592)+' today';
+  back.onclick=function(){renderToday();};body.appendChild(back);
+  var dt=document.createElement('div');dt.className='today-header';dt.style.fontSize='16px';dt.textContent=key;body.appendChild(dt);
+  if(day.focus){
+    var f=document.createElement('div');
+    f.style.cssText='font-size:13px;color:var(--text2);margin-bottom:12px;padding:7px 10px;background:var(--bg3);border-radius:4px;border-left:3px solid var(--amber)';
+    f.textContent=String.fromCharCode(8594)+' '+day.focus;body.appendChild(f);
+  }
+  if(day.checklist&&day.checklist.length){
+    var clLbl=document.createElement('div');clLbl.className='today-section-title';clLbl.textContent='tasks';body.appendChild(clLbl);
+    day.checklist.forEach(function(item){
+      var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:3px 0;'+(item.done?'opacity:.5;text-decoration:line-through':'');
+      var box=document.createElement('span');
+      box.style.cssText='width:12px;height:12px;border:1.5px solid '+(item.done?'var(--green)':'var(--border2)')+';border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;background:'+(item.done?'var(--green)':'transparent')+';color:#fff';
+      box.textContent=item.done?String.fromCharCode(10003):'';
+      var txt=document.createElement('span');txt.style.cssText='font-size:12px;color:var(--text)';txt.textContent=item.text;
+      row.appendChild(box);row.appendChild(txt);body.appendChild(row);
+    });
+  }
+  if(day.notes){
+    var nl=document.createElement('div');nl.className='today-section-title';nl.style.marginTop='10px';nl.textContent='notes';body.appendChild(nl);
+    var nt=document.createElement('div');nt.style.cssText='font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap';nt.textContent=day.notes;body.appendChild(nt);
+  }
+}
+
+
 init();
 initResize();
+
+// ── PDF DROP IMPORT ────────────────────────────────────────────────────────────
+
+async function dropImportPdf(filePath){
+  if(!window.epigraph||!window.epigraph.isElectron){toast('only available in the desktop app');return;}
+  toast('reading PDF…');
+  var doiRes=await window.epigraph.pdfExtractDoi(filePath);
+  if(doiRes.ok&&doiRes.doi){
+    await importWithDoi(doiRes.doi,filePath);
+  } else {
+    showManualImportModal(filePath,null,doiRes.title||'',doiRes.authors||'');
+  }
+}
+
+async function importWithDoi(doi,srcPath){
+  toast('looking up '+doi+'…');
+  var meta=await window.epigraph.fetchCrossref(doi);
+  if(!meta.ok||!meta.title){showManualImportModal(srcPath,doi);return;}
+  await finishImport(meta,srcPath);
+}
+
+async function finishImport(meta,srcPath){
+  var destDir=(S.settings&&S.settings.pdfFolder)||'~/Documents/ResearchPDFs';
+  var cp=srcPath?await window.epigraph.pdfCopy(srcPath,destDir):{ok:false};
+  var authorStr=meta.authors||'';
+  var authorList=authorStr.split(/\s+and\s+/i).map(function(a){return a.split(',')[0].trim();}).filter(Boolean);
+  var firstAuth=authorList[0]||'';
+  var lastAuth=authorList[authorList.length-1]||firstAuth;
+  var authsShort=authorList.slice(0,2).join(', ')+(authorList.length>2?' et al.':'');
+  var p={
+    id:'lib_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    title:meta.title||'',
+    authors:authorStr,authors_short:authsShort,
+    first_author:firstAuth,last_author:lastAuth,last_author_short:lastAuth.slice(0,20),
+    year:String(meta.year||''),journal:meta.journal||'',journal_short:(meta.journal||'').slice(0,20),
+    doi:meta.doi||'',abstract:'',tags:[],claims:[],
+    imported:new Date().toISOString(),
+    pdfPath:cp.ok?cp.destPath:(srcPath||null),
+    annotations:[]
+  };
+  if(!S.library)S.library=[];
+  if(p.doi){
+    var dup=S.library.find(function(x){return(x.doi||'').toLowerCase()===(p.doi||'').toLowerCase();});
+    if(dup){toast('already in library: '+dup.title.slice(0,40));rtab('library');selectLibPaper(dup.id);return;}
+  }
+  S.library.push(p);save();updateStats();
+  if(rightTab==='library')renderLibrary();
+  toast('imported: '+p.title.slice(0,45));
+  rtab('library');selectLibPaper(p.id);
+}
+
+function showManualImportModal(srcPath,prefillDoi,prefillTitle,prefillAuthors){
+  modal('<h3>import paper</h3>'
+    +'<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Paste a DOI to auto-fill from Crossref, or edit the fields below.</p>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +  '<input id="mi-doi" type="text" placeholder="10.xxxx/… paste DOI" style="flex:1" value="'+(prefillDoi?esc(prefillDoi):'')+'">'
+    +  '<button class="lbtn" onclick="miLookup()">lookup</button>'
+    +'</div>'
+    +'<input id="mi-title" type="text" placeholder="title *" style="margin-bottom:6px" value="'+esc(prefillTitle||'')+'">'
+    +'<input id="mi-authors" type="text" placeholder="authors" style="margin-bottom:6px" value="'+esc(prefillAuthors||'')+'">'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
+    +  '<input id="mi-year" type="text" placeholder="year" style="width:70px">'
+    +  '<input id="mi-journal" type="text" placeholder="journal / conference" style="flex:1">'
+    +'</div>'
+    +'<div id="mi-status" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-height:14px;margin-bottom:8px"></div>'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button>'
+    +'<button class="mbtn ok" onclick="miImport(\''+esc(srcPath||'')+'\')">import</button></div>');
+}
+
+async function miLookup(){
+  var doi=document.getElementById('mi-doi').value.trim();
+  if(!doi){document.getElementById('mi-status').textContent='paste a DOI first';return;}
+  document.getElementById('mi-status').textContent='looking up…';
+  var meta=await window.epigraph.fetchCrossref(doi);
+  if(!meta.ok||!meta.title){document.getElementById('mi-status').textContent='not found — fill manually';return;}
+  document.getElementById('mi-title').value=meta.title||'';
+  document.getElementById('mi-authors').value=meta.authors||'';
+  document.getElementById('mi-year').value=meta.year||'';
+  document.getElementById('mi-journal').value=meta.journal||'';
+  document.getElementById('mi-status').textContent='✓ filled from Crossref';
+}
+
+async function miImport(srcPath){
+  var title=document.getElementById('mi-title').value.trim();
+  if(!title){document.getElementById('mi-status').textContent='title is required';return;}
+  var meta={
+    title:title,
+    authors:document.getElementById('mi-authors').value.trim(),
+    year:document.getElementById('mi-year').value.trim(),
+    journal:document.getElementById('mi-journal').value.trim(),
+    doi:document.getElementById('mi-doi').value.trim()
+  };
+  closeModal();
+  await finishImport(meta,srcPath||null);
+}
+
+// ── ANNOTATION SYNC ────────────────────────────────────────────────────────────
+
+function onPdfFileChanged(filename){
+  var p=(S.library||[]).find(function(x){return x.pdfPath&&x.pdfPath.endsWith('/'+filename);});
+  if(p)syncPaperAnnotations(p);
+}
+
+async function syncPaperAnnotations(p){
+  if(!p||!p.pdfPath||!window.epigraph)return;
+  var r=await window.epigraph.pdfExtractAnnotations(p.pdfPath);
+  if(!r.ok)return;
+  var existing=new Set((p.annotations||[]).map(function(a){return a.dedup;}));
+  var added=0;
+  if(!p.annotations)p.annotations=[];
+  r.annotations.forEach(function(a){
+    if(!existing.has(a.dedup)){p.annotations.push(a);added++;}
+  });
+  if(added>0){save();toast(added+' new highlight'+(added!==1?'s':'')+' synced from Preview');}
+}
+
+// ── BIBTEX ─────────────────────────────────────────────────────────────────────
+
+function annotRgb(color){
+  if(!color)return '#f0c040';
+  if(Array.isArray(color)){
+    return 'rgb('+Math.round(color[0]*255)+','+Math.round(color[1]*255)+','+Math.round(color[2]*255)+')';
+  }
+  return String(color);
+}
+
+function generateCitekey(p){
+  var auth=(p.last_author||p.first_author||'unknown')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z]/g,'');
+  return auth+(p.year||'');
+}
+
+function escBib(s){return String(s||'').replace(/[{}]/g,'');}
+
+function buildBibtex(p){
+  var key=generateCitekey(p);
+  var authBib=(p.authors||'').split(/,\s*(?=[A-Z])/).join(', ');
+  return '@article{'+key+',\n'
+    +'  title   = {'+escBib(p.title)+'},\n'
+    +'  author  = {'+escBib(p.authors)+'},\n'
+    +'  journal = {'+escBib(p.journal)+'},\n'
+    +'  year    = {'+escBib(p.year)+'},\n'
+    +(p.doi?'  doi     = {'+escBib(p.doi)+'},\n':'')
+    +'}';
+}
+
+function copyBibtex(p){
+  navigator.clipboard.writeText(buildBibtex(p)).then(function(){
+    toast('BibTeX copied — '+generateCitekey(p));
+  });
+}
+
+function copyBibtexById(id){
+  var p=(S.library||[]).find(function(x){return x.id===id;});
+  if(p)copyBibtex(p);
+}
+
 </script>
 </body>
 </html>

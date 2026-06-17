@@ -1,7 +1,22 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const https = require('https')
 const { execFile, exec } = require('child_process')
+
+function runPy(script, args) {
+  return new Promise((resolve) => {
+    const b64 = Buffer.from(script).toString('base64')
+    execFile('python3', ['-c', `import base64,sys;exec(base64.b64decode('${b64}').decode())`, ...args],
+      { maxBuffer: 20 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        if (err) { resolve({ ok: false, error: stderr || err.message }); return }
+        try { resolve(JSON.parse(stdout.trim())) }
+        catch (e) { resolve({ ok: false, error: 'parse: ' + stdout.slice(0, 200) }) }
+      }
+    )
+  })
+}
 
 function getDataPath() {
   if (app.isPackaged) {
@@ -179,6 +194,7 @@ ipcMain.handle('list-files', async (event, folderPath, ext) => {
 ipcMain.handle('git-status', async (event, folderPath) => {
   const expanded = folderPath.replace(/^~/, app.getPath('home'))
   if (!fs.existsSync(expanded)) return { ok: false, status: 'folder not found' }
+  if (!fs.statSync(expanded).isDirectory()) return { ok: false, status: 'path is a file — set the folder' }
   // Check if git repo
   const isRepo = fs.existsSync(path.join(expanded, '.git'))
   if (!isRepo) return { ok: true, status: 'not a git repo — click commit to initialise' }
@@ -191,7 +207,9 @@ ipcMain.handle('git-status', async (event, folderPath) => {
 
 ipcMain.handle('git-commit', async (event, folderPath, message) => {
   const expanded = folderPath.replace(/^~/, app.getPath('home'))
-  if (!fs.existsSync(expanded)) return { ok: false, error: 'folder not found' }
+  if (!fs.existsSync(expanded)) return { ok: false, error: 'folder not found: ' + expanded }
+  // Check it's a directory, not a file
+  if (!fs.statSync(expanded).isDirectory()) return { ok: false, error: 'path is a file, not a folder — set the folder containing your notebooks' }
   // Init if not a repo
   if (!fs.existsSync(path.join(expanded, '.git'))) {
     await runGit(['init'], expanded)
@@ -220,6 +238,130 @@ ipcMain.handle('git-push', async (event, folderPath, repoUrl, token) => {
   }
   const r = await runGit(['push', '-u', 'origin', 'HEAD'], expanded)
   return r
+})
+
+
+// ── PDF UTILITIES ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('pdf-extract-doi', async (event, pdfPath) => {
+  const script = `
+import fitz,re,sys,json
+doi_pat=re.compile(r'10\\.\\d{4,9}/[^\\s"\'<>{}\\[\\]]+')
+arxiv_pat=re.compile(r'arXiv:\\s*(\\d{4}\\.\\d{4,5}(?:v\\d+)?)')
+try:
+ doc=fitz.open(sys.argv[1])
+ cands=[]
+ m=doc.metadata
+ for f in ['subject','title','keywords','creator']:
+  if m.get(f):cands.extend(doi_pat.findall(m[f]))
+ xmp=doc.get_xml_metadata()
+ if xmp:cands.extend(doi_pat.findall(xmp))
+ # scan up to 10 pages, stop early if doi found
+ for i in range(min(10,len(doc))):
+  txt=doc[i].get_text()
+  cands.extend(doi_pat.findall(txt))
+  ax=arxiv_pat.findall(txt)
+  for a in ax:cands.append('10.48550/arXiv.'+a)
+  if cands:break
+ # extract title/authors from page 1 for pre-fill
+ p1=doc[0].get_text() if len(doc)>0 else ''
+ lines=[l.strip() for l in p1.split('\\n') if l.strip()]
+ guessed_title=lines[0] if lines else ''
+ guessed_authors=lines[1] if len(lines)>1 else ''
+ doc.close()
+ seen,cleaned=set(),[]
+ for d in cands:
+  d=d.rstrip('.,;):')
+  if d not in seen:seen.add(d);cleaned.append(d)
+ print(json.dumps({'ok':True,'doi':cleaned[0] if cleaned else None,'title':guessed_title,'authors':guessed_authors}))
+except Exception as e:
+ print(json.dumps({'ok':False,'error':str(e)}))
+`.trim()
+  return runPy(script, [pdfPath])
+})
+
+ipcMain.handle('pdf-copy', async (event, srcPath, destDir) => {
+  try {
+    const expanded = destDir.replace(/^~/, app.getPath('home'))
+    if (!fs.existsSync(expanded)) fs.mkdirSync(expanded, { recursive: true })
+    const dest = path.join(expanded, path.basename(srcPath))
+    if (dest !== srcPath) fs.copyFileSync(srcPath, dest)
+    return { ok: true, destPath: dest }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('fetch-crossref', async (event, doi) => {
+  return new Promise((resolve) => {
+    const url = 'https://api.crossref.org/works/' + encodeURIComponent(doi)
+    const req = https.get(url, { headers: { 'User-Agent': 'Epigraph/1.0' } }, (res) => {
+      let data = ''
+      res.on('data', c => { data += c })
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data)
+          const m = j.message
+          const title = (m.title || [])[0] || ''
+          const authors = (m.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join(' and ')
+          const journal = (m['container-title'] || [])[0] || ''
+          const yr = ((m.published || m['published-print'] || m['published-online'] || {})['date-parts'] || [['']])[0][0]
+          resolve({ ok: true, title, authors, journal, year: String(yr || ''), doi })
+        } catch (e) { resolve({ ok: false, error: 'parse: ' + e.message }) }
+      })
+    })
+    req.on('error', e => resolve({ ok: false, error: e.message }))
+    req.setTimeout(10000, () => { req.destroy(); resolve({ ok: false, error: 'timeout' }) })
+  })
+})
+
+ipcMain.handle('pdf-extract-annotations', async (event, pdfPath) => {
+  const script = `
+import fitz,json,sys
+try:
+ doc=fitz.open(sys.argv[1])
+ results=[]
+ for page in doc:
+  for annot in page.annots():
+   t=annot.type[0]
+   if t==15:continue
+   r=annot.rect
+   info=annot.info
+   color=annot.colors.get('stroke') or annot.colors.get('fill')
+   text=''
+   content=(info.get('content') or '').strip()
+   if t==8:text=page.get_textbox(r).strip().replace('\\n',' ')
+   key=(text or content)[:30]
+   dedup='p%d|%.0f,%.0f|%s'%(page.number+1,r.x0,r.y0,key)
+   if t in(1,2,3,4,8,9,10)and(text or content):
+    results.append({'page':page.number+1,'x0':r.x0,'y0':r.y0,'x1':r.x1,'y1':r.y1,'type':annot.type[1],'text':text,'content':content,'color':color,'dedup':dedup})
+ doc.close()
+ print(json.dumps({'ok':True,'annotations':results}))
+except Exception as e:
+ print(json.dumps({'ok':False,'error':str(e)}))
+`.trim()
+  return runPy(script, [pdfPath])
+})
+
+let pdfWatcher = null
+const pdfDebounce = {}
+
+ipcMain.handle('start-pdf-watcher', async (event, folder) => {
+  if (pdfWatcher) { try { pdfWatcher.close() } catch (e) {} pdfWatcher = null }
+  try {
+    const expanded = folder.replace(/^~/, app.getPath('home'))
+    if (!fs.existsSync(expanded)) return { ok: false, error: 'folder not found' }
+    pdfWatcher = fs.watch(expanded, { persistent: false }, (eventType, filename) => {
+      if (!filename || !filename.toLowerCase().endsWith('.pdf')) return
+      clearTimeout(pdfDebounce[filename])
+      pdfDebounce[filename] = setTimeout(() => {
+        if (win && !win.isDestroyed()) win.webContents.send('pdf-changed', filename)
+      }, 2000)
+    })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
 })
 
 // ── APP MENU ──────────────────────────────────────────────────────────────────

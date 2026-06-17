@@ -19,5 +19,13 @@ contextBridge.exposeInMainWorld('epigraph', {
   gitCommit:   (folder, msg)=> ipcRenderer.invoke('git-commit', folder, msg),
   gitPush:     (folder, url, token) => ipcRenderer.invoke('git-push', folder, url, token),
 
+  // PDF import + sync
+  pdfExtractDoi:        (p)        => ipcRenderer.invoke('pdf-extract-doi', p),
+  pdfCopy:              (src, dir) => ipcRenderer.invoke('pdf-copy', src, dir),
+  fetchCrossref:        (doi)      => ipcRenderer.invoke('fetch-crossref', doi),
+  pdfExtractAnnotations:(p)        => ipcRenderer.invoke('pdf-extract-annotations', p),
+  startPdfWatcher:      (folder)   => ipcRenderer.invoke('start-pdf-watcher', folder),
+  onPdfChanged:         (cb)       => ipcRenderer.on('pdf-changed', (_e, fname) => cb(fname)),
+
   isElectron: true
 })
