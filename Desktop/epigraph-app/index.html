@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Epigraph</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#0d1117;--bg2:#151b23;--bg3:#1c2330;--bg4:#222d3d;
@@ -603,6 +603,7 @@ async function init(){
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
   
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
+    applyFont(S.settings.font||'dm');
     // Clean up entries with bare-filename pdfPath (Electron 32+ file.path bug)
     var badPdf=false;
     S.library.forEach(function(x){if(x.pdfPath&&!x.pdfPath.startsWith('/')){x.pdfPath=null;badPdf=true;}});
@@ -2889,6 +2890,21 @@ function addInboxToLib(id){
   p.addedToLib=true;
   save();updateStats();renderFeed();toast('added to library');
 }
+var FONTS={
+  dm:   {sans:"'DM Sans',sans-serif",    mono:"'DM Mono',monospace"},
+  plex: {sans:"'IBM Plex Sans',sans-serif", mono:"'IBM Plex Mono',monospace"},
+  jb:   {sans:"'Inter',sans-serif",      mono:"'JetBrains Mono',monospace"}
+};
+function applyFont(key){
+  var f=FONTS[key]||FONTS.dm;
+  document.documentElement.style.setProperty('--sans',f.sans);
+  document.documentElement.style.setProperty('--mono',f.mono);
+}
+function setFont(key){
+  S.settings.font=key;save();applyFont(key);
+  var btns=document.querySelectorAll('.font-opt');
+  btns.forEach(function(b){b.classList.toggle('on',b.dataset.font===key);});
+}
 function setSetting(key,val){
   S.settings[key]=parseFloat(val);save();renderMap();
 }
@@ -3193,6 +3209,20 @@ function renderFeedSettings(){
     if(style)b.style.cssText=style;b.onclick=fn;return b;
   }
 
+  mkTitle('appearance');
+  var fontRow=document.createElement('div');fontRow.style.cssText='display:flex;gap:4px;margin-bottom:10px';
+  var cur=S.settings.font||'dm';
+  [{k:'dm',label:'DM'},{k:'plex',label:'Plex'},{k:'jb',label:'JB'}].forEach(function(opt){
+    var b=document.createElement('button');b.className='lbtn font-opt'+(cur===opt.k?' on':'');
+    b.dataset.font=opt.k;b.style.flex='1';b.textContent=opt.label;
+    b.title={dm:'DM Sans / DM Mono',plex:'IBM Plex Sans / IBM Plex Mono',jb:'Inter / JetBrains Mono'}[opt.k];
+    b.onclick=function(){setFont(opt.k);};
+    fontRow.appendChild(b);
+  });
+  panel.appendChild(mkLabel('font'));
+  panel.appendChild(fontRow);
+
+  var sep0=document.createElement('div');sep0.style.cssText='height:1px;background:var(--border);margin:10px 0';panel.appendChild(sep0);
   mkTitle('map');
   mkRow(mkLabel('zoom speed','slower ← → faster'),
         mkSlider('zoomSpeed',1,15,Math.round((S.settings.zoomSpeed||0.04)*100)));
