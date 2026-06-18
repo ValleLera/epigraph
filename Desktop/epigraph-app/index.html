@@ -410,6 +410,11 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <button class="fbtn" id="fetchbtn" onclick="fetchPapers('focused')" title="search active keywords">⟳ focused</button>
     <button class="fbtn" onclick="fetchPapers('broad')" title="search from your claims map">⊕ broad</button>
     <button class="fbtn" onclick="clearInbox()" style="flex:0;padding:5px 8px;" title="clear inbox">✕</button>
+    <select id="feed-sort-sel" onchange="setFeedSort(this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 6px;color:var(--text2);font-size:11px;font-family:var(--mono);outline:none;cursor:pointer;">
+      <option value="date">newest</option>
+      <option value="title">title</option>
+      <option value="first_author">author</option>
+    </select>
   </div>
   <div id="feed-list"><div class="empty">fetch papers to review<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from your claims</span></div></div>
   <div style="flex-shrink:0;border-top:1px solid var(--border);">
@@ -520,8 +525,8 @@ var tx=0,ty=0,sc=1,panning=false,psx=0,psy=0,pox=0,poy=0;
 var assignPaper=null,assignType='for';
 var feedTab='inbox';
 var libSort='year',libSortDir=-1,libTagFilter='',libSearch='';
+var feedSort='date',feedSortDir=-1;
 var mapSvg,vp,el,nl;
-var libSort='year',libSortDir=-1,libTagFilter='',libSearch='';
 
 // ══ SEED CLAIMS ══
 var SEED=[
@@ -872,6 +877,8 @@ function renderLibrary(){
     else if(libSort==='first_author'){av=(a.authors_short||'').toLowerCase();bv=(b.authors_short||'').toLowerCase();}
     else if(libSort==='last_author'){av=(a.last_author||'').toLowerCase();bv=(b.last_author||'').toLowerCase();}
     else if(libSort==='journal'){av=(a.journal||'').toLowerCase();bv=(b.journal||'').toLowerCase();}
+    else if(libSort==='imported'){av=a.imported||'0000';bv=b.imported||'0000';}
+    else if(libSort==='lastOpened'){av=a.lastOpened||'0000';bv=b.lastOpened||'0000';}
     else{av=(a.title||'').toLowerCase();bv=(b.title||'').toLowerCase();}
     if(av<bv)return -libSortDir;if(av>bv)return libSortDir;return 0;
   });
@@ -879,93 +886,88 @@ function renderLibrary(){
   var allTags={};
   lib.forEach(function(p){(p.tags||[]).forEach(function(t){allTags[t]=(allTags[t]||0)+1;});});
 
-  var html='';
+  // Build header once — preserves search input focus across re-renders
+  if(!document.getElementById('lib-search')){
+    var sortOpts=[{k:'year',l:'year'},{k:'imported',l:'date added'},{k:'lastOpened',l:'last opened'},
+      {k:'first_author',l:'first author'},{k:'last_author',l:'last author'},{k:'title',l:'title'},{k:'journal',l:'journal'}];
+    var selHtml='<select id="lib-sort" onchange="setLibSort(this.value)">';
+    sortOpts.forEach(function(o){selHtml+='<option value="'+o.k+'"'+(libSort===o.k?' selected':'')+'>'+o.l+'</option>';});
+    selHtml+='</select>';
+    var hdr='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">'
+      +'<input id="lib-search" type="text" placeholder="search..." style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;" value="'+esc(libSearch)+'">'
+      +selHtml
+      +'<button class="lbtn" id="lib-add-btn">+ add</button>'
+      +'</div>'
+      +'<div id="lib-pdf-drop" style="border:2px dashed var(--border2);border-radius:5px;padding:9px 14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s">drop PDF here to import · or click to pick file</div>';
+    body.innerHTML=hdr+'<div id="lib-results"></div>';
+    var dropZone=document.getElementById('lib-pdf-drop');
+    if(dropZone){
+      dropZone.addEventListener('dragover',function(e){
+        e.preventDefault();dropZone.style.borderColor='var(--amber)';dropZone.style.background='rgba(251,191,36,.06)';
+      });
+      dropZone.addEventListener('dragleave',function(){
+        dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
+      });
+      dropZone.addEventListener('drop',function(e){
+        e.preventDefault();dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
+        var files=Array.from(e.dataTransfer.files).filter(function(f){return f.name.toLowerCase().endsWith('.pdf');});
+        if(!files.length){toast('drop a PDF file');return;}
+        var fp=window.epigraph.getFilePath(files[0]);
+        if(!fp||!fp.startsWith('/')){toast('cannot read file path — use the library drop zone or click to pick');return;}
+        dropImportPdf(fp);
+      });
+      dropZone.onclick=function(){
+        if(window.epigraph&&window.epigraph.isElectron){
+          window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;dropImportPdf(r.filePath);});
+        }
+      };
+    }
+    var si=document.getElementById('lib-search');
+    if(si)si.oninput=function(){libSearchUpdate(si.value);};
+    var ab=document.getElementById('lib-add-btn');
+    if(ab)ab.onclick=openAddPaper;
+  } else {
+    var sd=document.getElementById('lib-sort');
+    if(sd)sd.value=libSort;
+  }
 
-  // Controls
-  html+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">';
-  html+='<input id="lib-search" type="text" placeholder="search..." style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;" value="'+esc(libSearch)+'">';
-  html+='<button class="lbtn" id="lib-add-btn">+ add</button>';
-  html+='</div>';
-
-  // PDF drop zone
-  html+='<div id="lib-pdf-drop" style="border:2px dashed var(--border2);border-radius:5px;padding:9px 14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s">drop PDF here to import · or click to pick file</div>';
-
-  // Tag filters
-  html+='<div class="tag-filter">';
-  html+='<span class="tf'+(libTagFilter===''?' on':'')+'" data-tag="" onclick="setTagEl(this)">all ('+lib.length+')</span>';
+  // Always re-render results (tag pills, stats, table)
+  var rhtml='<div class="tag-filter">';
+  rhtml+='<span class="tf'+(libTagFilter===''?' on':'')+'" data-tag="" onclick="setTagEl(this)">all ('+lib.length+')</span>';
   Object.keys(allTags).sort().forEach(function(t){
-    html+='<span class="tf'+(libTagFilter===t?' on':'')+'" data-tag="'+esc(t)+'" onclick="setTagEl(this)">'+esc(t)+' ('+allTags[t]+')</span>';
+    rhtml+='<span class="tf'+(libTagFilter===t?' on':'')+'" data-tag="'+esc(t)+'" onclick="setTagEl(this)">'+esc(t)+' ('+allTags[t]+')</span>';
   });
-  html+='</div>';
-
-  // Stats
-  html+='<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin:6px 0"><b style="color:var(--text2)">'+filtered.length+'</b> of <b style="color:var(--text2)">'+lib.length+'</b> papers</div>';
-
-  // Table
+  rhtml+='</div>';
+  rhtml+='<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin:6px 0"><b style="color:var(--text2)">'+filtered.length+'</b> of <b style="color:var(--text2)">'+lib.length+'</b> papers</div>';
   var sortCols=[{k:'year',l:'year'},{k:'first_author',l:'1st auth'},{k:'last_author',l:'last auth'},{k:'title',l:'title'},{k:'journal',l:'journal'}];
-  html+='<div style="overflow-x:auto"><table class="lib-table"><thead><tr>';
+  rhtml+='<div style="overflow-x:auto"><table class="lib-table"><thead><tr>';
   sortCols.forEach(function(col){
-    html+='<th class="'+(libSort===col.k?'sorted':'')+'" data-sort="'+col.k+'" onclick="setLibSort(this.dataset.sort)">'+col.l+(libSort===col.k?(libSortDir===1?' ↑':' ↓'):'')+'</th>';
+    rhtml+='<th class="'+(libSort===col.k?'sorted':'')+'" data-sort="'+col.k+'" onclick="setLibSort(this.dataset.sort)">'+col.l+(libSort===col.k?(libSortDir===1?' ↑':' ↓'):'')+'</th>';
   });
-  html+='<th>tags</th><th>+</th></tr></thead><tbody>';
-
+  rhtml+='<th>tags</th><th>+</th></tr></thead><tbody>';
   if(filtered.length){
     filtered.forEach(function(p){
       var doi=p.doi?'<a href="https://doi.org/'+esc(p.doi)+'" target="_blank" style="color:var(--cyan);font-size:9px">↗</a>':'';
       var tags=(p.tags||[]).map(function(t){return'<span class="lib-tag">'+esc(t)+'</span>';}).join('');
       var claimed=(p.claims||[]).length?'<span class="lib-claimed">'+(p.claims.length)+'✓</span>':'';
-      html+='<tr class="lib-row" data-pid="'+esc(p.id)+'">';
+      rhtml+='<tr class="lib-row" data-pid="'+esc(p.id)+'">';
       var pdfBadge=p.pdfPath?'<span title="PDF attached" style="color:var(--amber);font-size:9px;font-family:var(--mono);margin-right:3px">pdf</span>':'';
       var bibBadge='<span title="copy BibTeX" style="cursor:pointer;color:var(--cyan);font-size:9px;font-family:var(--mono);margin-right:3px" onclick="event.stopPropagation();copyBibtexById(\''+p.id+'\')">bib</span>';
-      html+='<td class="lib-year">'+bibBadge+pdfBadge+esc(p.year||'?')+'</td>';
-      html+='<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>';
-      html+='<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>';
-      html+='<td class="lib-title-cell">'+esc(p.title.slice(0,55))+(p.title.length>55?'...':'')+' '+doi+'</td>';
-      html+='<td class="lib-journal" title="'+esc(p.journal||'')+'">'+esc((p.journal_short||p.journal||'').slice(0,18))+'</td>';
-      html+='<td>'+tags+'</td>';
-      html+='<td>'+claimed+'</td>';
-      html+='</tr>';
+      rhtml+='<td class="lib-year">'+bibBadge+pdfBadge+esc(p.year||'?')+'</td>';
+      rhtml+='<td class="lib-auth" title="'+esc(p.authors||'')+'">'+esc(p.authors_short||'')+'</td>';
+      rhtml+='<td class="lib-auth" title="'+esc(p.last_author||'')+'">'+esc(p.last_author_short||'')+'</td>';
+      rhtml+='<td class="lib-title-cell">'+esc(p.title.slice(0,55))+(p.title.length>55?'...':'')+' '+doi+'</td>';
+      rhtml+='<td class="lib-journal" title="'+esc(p.journal||'')+'">'+esc((p.journal_short||p.journal||'').slice(0,18))+'</td>';
+      rhtml+='<td>'+tags+'</td>';
+      rhtml+='<td>'+claimed+'</td>';
+      rhtml+='</tr>';
     });
   } else {
-    html+='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px;">'+(lib.length?'no matches':'library empty<br>import .bib or add manually')+'</td></tr>';
+    rhtml+='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px;">'+(lib.length?'no matches':'library empty<br>import .bib or add manually')+'</td></tr>';
   }
-  html+='</tbody></table></div>';
-
-  body.innerHTML=html;
-
-  // Attach events after innerHTML
-  var dropZone=document.getElementById('lib-pdf-drop');
-  if(dropZone){
-    dropZone.addEventListener('dragover',function(e){
-      e.preventDefault();dropZone.style.borderColor='var(--amber)';dropZone.style.background='rgba(251,191,36,.06)';
-    });
-    dropZone.addEventListener('dragleave',function(){
-      dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
-    });
-    dropZone.addEventListener('drop',function(e){
-      e.preventDefault();dropZone.style.borderColor='var(--border2)';dropZone.style.background='';
-      var files=Array.from(e.dataTransfer.files).filter(function(f){return f.name.toLowerCase().endsWith('.pdf');});
-      if(!files.length){toast('drop a PDF file');return;}
-      var fp=window.epigraph.getFilePath(files[0]);
-      if(!fp||!fp.startsWith('/')){toast('cannot read file path — use the library drop zone or click to pick');return;}
-      dropImportPdf(fp);
-    });
-    dropZone.onclick=function(){
-      if(window.epigraph&&window.epigraph.isElectron){
-        window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;dropImportPdf(r.filePath);});
-      }
-    };
-  }
-
-  var si=document.getElementById('lib-search');
-  if(si)si.oninput=function(){libSearchUpdate(si.value);};
-
-
-
-  var ab=document.getElementById('lib-add-btn');
-  if(ab)ab.onclick=openAddPaper;
-
-  body.querySelectorAll('.lib-row').forEach(function(row){
+  rhtml+='</tbody></table></div>';
+  document.getElementById('lib-results').innerHTML=rhtml;
+  document.getElementById('lib-results').querySelectorAll('.lib-row').forEach(function(row){
     row.addEventListener('click',function(){selectLibPaper(row.dataset.pid);});
   });
 }
@@ -979,6 +981,7 @@ function setTagFilter(t){libTagFilter=t;renderLibrary();}
 
 function selectLibPaper(id){
   var p=(S.library||[]).find(function(x){return x.id===id;});if(!p)return;
+  p.lastOpened=new Date().toISOString();save();
 
   var wrap=document.createElement('div');
 
@@ -1470,11 +1473,18 @@ function renderNotes(){
   var body=document.getElementById('rbody');
   migrateNotes();
 
-  var html='<div style="display:flex;gap:6px;margin-bottom:10px;">'
-    +'<button class="newbtn" style="flex:1;margin:0" onclick="openNoteEditor(null)">+ new note</button>'
-    +'<input id="note-search" placeholder="search notes..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;" oninput="filterNotes(this.value)">'
-    +'</div>';
+  // Build header once — preserves note-search focus across re-renders
+  if(!document.getElementById('note-search')){
+    body.innerHTML='<div style="display:flex;gap:6px;margin-bottom:10px;">'
+      +'<button class="newbtn" style="flex:1;margin:0" onclick="openNoteEditor(null)">+ new note</button>'
+      +'<input id="note-search" placeholder="search notes..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;">'
+      +'</div>'
+      +'<div id="notes-results"></div>';
+    var ns=document.getElementById('note-search');
+    if(ns)ns.oninput=function(){filterNotes(this.value);};
+  }
 
+  var html='';
   var q=noteSearchQuery.toLowerCase().trim();
 
   var sorted=S.notes.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
@@ -1488,8 +1498,8 @@ function renderNotes(){
   }
 
   if(!sorted.length){
-    html+='<div class="empty">'+(q?'no matches':'no notes yet<br>click + to create one')+'</div>';
-    body.innerHTML=html;return;
+    html='<div class="empty">'+(q?'no matches':'no notes yet<br>click + to create one')+'</div>';
+    document.getElementById('notes-results').innerHTML=html;return;
   }
 
   sorted.forEach(function(n){
@@ -1515,7 +1525,7 @@ function renderNotes(){
       +'</div>';
   });
 
-  body.innerHTML=html;
+  document.getElementById('notes-results').innerHTML=html;
 }
 
 // ── NOTE EDITOR ───────────────────────────────────────────────────────────────
@@ -2660,11 +2670,19 @@ function broadQueries(){
   return queries;
 }
 
+function setFeedSort(k){if(feedSort===k)feedSortDir*=-1;else{feedSort=k;feedSortDir=-1;}var el=document.getElementById('feed-sort-sel');if(el)el.value=feedSort;renderFeed();}
 function renderFeed(){
   var list=document.getElementById('feed-list');
   if(!list)return;
   if(!S.inbox)S.inbox=[];
   var papers=S.inbox.filter(function(p){return feedTab==='dismissed'?p.dismissed:!p.dismissed;});
+  papers.sort(function(a,b){
+    var av,bv;
+    if(feedSort==='title'){av=(a.title||'').toLowerCase();bv=(b.title||'').toLowerCase();}
+    else if(feedSort==='first_author'){av=(a.authors||'').split(',')[0].toLowerCase();bv=(b.authors||'').split(',')[0].toLowerCase();}
+    else{av=a.date||'0000';bv=b.date||'0000';}
+    if(av<bv)return -feedSortDir;if(av>bv)return feedSortDir;return 0;
+  });
   updateFeedCounts();
   if(!papers.length){
     list.innerHTML='<div class="empty">'+(feedTab==='dismissed'?'no dismissed papers':'inbox empty — hit fetch to load papers')+'</div>';
@@ -2734,7 +2752,7 @@ function addInboxToLib(id){
       first_author:(p.authors||'').split(',')[0]||'',
       last_author:p.last_author||'',last_author_short:(p.last_author||'').slice(0,20),
       year:(p.date||'').slice(0,4),journal:p.journal||'',journal_short:(p.journal||'').slice(0,20),
-      doi:p.doi||'',abstract:p.abstract||'',tags:[],claims:[],
+      doi:p.doi||'',abstract:p.abstract||'',tags:(p.keywords||[]),claims:[],
       imported:new Date().toISOString()
     });
   }
@@ -2819,7 +2837,7 @@ async function fPM(topic){
     var au=(p.authors||[]).slice(0,3).map(function(a){return a.name;}).join(', ');
     if((p.authors||[]).length>3)au+=' et al.';
     var lastA=(p.authors||[]).slice(-1).map(function(a){return a.name;}).join('');
-    return{id:'pm_'+id,source:'pubmed',topic:topic.l,title:p.title||'',authors:au,last_author:lastA,journal:p.fulljournalname||'',date:p.pubdate||'',doi:(p.elocationid||'').replace('doi: ',''),abstract:'',url:'https://pubmed.ncbi.nlm.nih.gov/'+id+'/',dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
+    return{id:'pm_'+id,source:'pubmed',topic:topic.l,title:p.title||'',authors:au,last_author:lastA,journal:p.fulljournalname||'',date:p.pubdate||'',doi:(p.elocationid||'').replace('doi: ',''),abstract:'',url:'https://pubmed.ncbi.nlm.nih.gov/'+id+'/',keywords:(p.keywords||[]),dismissed:false,inLibrary:false,addedToLib:false,assignedTo:null};
   });
 }
 
