@@ -361,6 +361,26 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 .atbtn[data-t=for].sel{border-color:var(--green);color:var(--green);}
 .atbtn[data-t=against].sel{border-color:var(--red);color:var(--red);}
 
+/* CALENDAR */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.cal-nav button{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;padding:3px 9px;}
+.cal-nav button:hover{border-color:var(--border2);color:var(--text);}
+.cal-month-label{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:500;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-dow{font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;padding:3px 0;letter-spacing:.05em;}
+.cal-day{min-height:44px;border-radius:4px;border:1px solid transparent;padding:3px 4px;cursor:pointer;transition:background .1s,border-color .1s;position:relative;}
+.cal-day:hover{background:var(--bg3);border-color:var(--border);}
+.cal-day.today{border-color:var(--amber);}
+.cal-day.other-month{opacity:.3;}
+.cal-day-num{font-size:10px;font-family:var(--mono);color:var(--text3);line-height:1;}
+.cal-day.today .cal-day-num{color:var(--amber);}
+.cal-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--cyan);margin:1px 1px 0;}
+.cal-events-label{font-family:var(--mono);font-size:10px;color:var(--text3);margin:12px 0 6px;border-top:1px solid var(--border);padding-top:10px;}
+.cal-evt{background:var(--bg3);border-radius:4px;padding:6px 8px;margin-bottom:5px;border-left:2px solid var(--cyan);}
+.cal-evt-title{font-size:12px;color:var(--text);margin-bottom:2px;}
+.cal-evt-date{font-size:10px;font-family:var(--mono);color:var(--text3);}
+.cal-evt-desc{font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4;}
+
 /* CTX */
 #ctx{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:4px;z-index:1000;display:none;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.5);}
 .cx{padding:6px 10px;border-radius:4px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono);transition:all .1s;}
@@ -485,6 +505,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <div class="rtab" id="rt-today" onclick="rtab('today')">today</div>
     <div class="rtab" id="rt-notes" onclick="rtab('notes')">notes</div>
     <div class="rtab" id="rt-overview" onclick="rtab('overview')">overview</div>
+    <div class="rtab" id="rt-calendar" onclick="rtab('calendar')">calendar</div>
   </div>
   <div id="rbody"><div class="empty">click a node<br>to explore</div></div>
 </div>
@@ -518,7 +539,7 @@ var SC = {jam:'#f97316', col:'#22c55e', yap:'#a78bfa', nuc:'#06b6d4'};
 function sCol(c){return c.conf==='yours'?'#a78bfa':SC[c.strand]||'#8899aa';}
 
 // ══ STATE ══
-var S={claims:[],library:[],projects:[],notes:[],papers:[],topics:[
+var S={claims:[],library:[],projects:[],notes:[],papers:[],calendar:[],topics:[
   {l:'YAP/TAZ',q:'YAP TAZ mechanotransduction epithelial',on:true},
   {l:'collective migration',q:'collective cell migration epithelial monolayer',on:true},
   {l:'jamming',q:'cell jamming unjamming epithelial tissue',on:true},
@@ -576,7 +597,7 @@ async function init(){
       var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
       if(sv)try{p=JSON.parse(sv);}catch(e){}
     }
-    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};}
+    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};S.calendar=p.calendar||[];}
     else{S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);}
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
@@ -802,6 +823,7 @@ function renderRight(){
   else if(rightTab==='today')renderToday();
   else if(rightTab==='notes')renderNotes();
   else if(rightTab==='overview')renderOverview();
+  else if(rightTab==='calendar')renderCalendar();
 
 }
 
@@ -3012,6 +3034,131 @@ function saveNewSubProject(parentId){
   S.projects.push({id:'pj_'+Date.now(),name:nm,status:v('p-s'),hypothesis:v('p-h'),
     linkedClaims:[],notes:v('p-no'),created:new Date().toISOString(),parentId:parentId});
   save();closeModal();openProject(parentId);toast('sub-project created');
+}
+
+// ══ CALENDAR ══════════════════════════════════════════════════════════════════
+var calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+
+function renderCalendar(){
+  if(!S.calendar)S.calendar=[];
+  var body=document.getElementById('rbody');
+  var today=new Date();
+  var todayStr=today.toISOString().slice(0,10);
+
+  var html='';
+
+  // Navigation
+  var mNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  html+='<div class="cal-nav">'
+    +'<button onclick="calMove(-1)">&#8592;</button>'
+    +'<span class="cal-month-label">'+mNames[calMonth]+' '+calYear+'</span>'
+    +'<button onclick="calMove(1)">&#8594;</button>'
+    +'</div>';
+
+  // Day-of-week headers
+  html+='<div class="cal-grid">';
+  ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d){
+    html+='<div class="cal-dow">'+d+'</div>';
+  });
+
+  // Calculate grid
+  var firstDay=new Date(calYear,calMonth,1);
+  // Monday-based: Mon=0 … Sun=6
+  var startDow=(firstDay.getDay()+6)%7;
+  var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  var daysInPrev=new Date(calYear,calMonth,0).getDate();
+
+  // Events indexed by date string
+  var evByDate={};
+  S.calendar.forEach(function(ev){if(!evByDate[ev.date])evByDate[ev.date]=[];evByDate[ev.date].push(ev);});
+
+  var cells=[];
+  // Preceding month days
+  for(var i=startDow-1;i>=0;i--)cells.push({day:daysInPrev-i,cur:false});
+  // Current month days
+  for(var d=1;d<=daysInMonth;d++)cells.push({day:d,cur:true});
+  // Trailing days to complete last row
+  var trailing=(7-cells.length%7)%7;
+  for(var j=1;j<=trailing;j++)cells.push({day:j,cur:false});
+
+  cells.forEach(function(cell){
+    var dateStr='';
+    if(cell.cur){
+      var mm=String(calMonth+1).padStart(2,'0');
+      var dd=String(cell.day).padStart(2,'0');
+      dateStr=calYear+'-'+mm+'-'+dd;
+    }
+    var isToday=dateStr===todayStr;
+    var evs=dateStr?evByDate[dateStr]||[]:[];
+    var cls='cal-day'+(isToday?' today':'')+(cell.cur?'':' other-month');
+    html+='<div class="'+cls+'"'+(dateStr?' onclick="openCalendarDay(\''+dateStr+'\')"':'')+'>';
+    html+='<div class="cal-day-num">'+cell.day+'</div>';
+    evs.slice(0,3).forEach(function(){html+='<span class="cal-dot"></span>';});
+    if(evs.length>3)html+='<span style="font-size:8px;color:var(--text3);font-family:var(--mono)">+'+(evs.length-3)+'</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+
+  // Upcoming events list (next 30 days)
+  var upcoming=S.calendar.filter(function(ev){return ev.date>=todayStr;}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;}).slice(0,8);
+  if(upcoming.length){
+    html+='<div class="cal-events-label">upcoming</div>';
+    upcoming.forEach(function(ev){
+      var d=new Date(ev.date+'T12:00:00');
+      var ds=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+      html+='<div class="cal-evt">'
+        +'<div class="cal-evt-title">'+esc(ev.title)+'</div>'
+        +'<div class="cal-evt-date">'+esc(ds)+'</div>'
+        +(ev.desc?'<div class="cal-evt-desc">'+esc(ev.desc)+'</div>':'')
+        +'<div style="margin-top:5px"><button style="background:none;border:none;color:var(--text3);font-size:10px;font-family:var(--mono);cursor:pointer;padding:0" onclick="deleteCalEvent(\''+esc(ev.id)+'\')">delete</button></div>'
+        +'</div>';
+    });
+  }
+
+  body.innerHTML=html;
+}
+
+function calMove(dir){
+  calMonth+=dir;
+  if(calMonth>11){calMonth=0;calYear++;}
+  if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+
+function openCalendarDay(dateStr){
+  var d=new Date(dateStr+'T12:00:00');
+  var ds=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var existing=(S.calendar||[]).filter(function(ev){return ev.date===dateStr;});
+  var listHtml='';
+  if(existing.length){
+    listHtml='<div style="margin-bottom:10px">';
+    existing.forEach(function(ev){
+      listHtml+='<div style="background:var(--bg3);border-radius:4px;padding:6px 8px;margin-bottom:4px;border-left:2px solid var(--cyan)">'
+        +'<div style="font-size:12px;color:var(--text)">'+esc(ev.title)+'</div>'
+        +(ev.desc?'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+esc(ev.desc)+'</div>':'')
+        +'<button style="background:none;border:none;color:var(--text3);font-size:10px;font-family:var(--mono);cursor:pointer;margin-top:3px;padding:0" onclick="deleteCalEvent(\''+esc(ev.id)+'\');openCalendarDay(\''+esc(dateStr)+'\')">remove</button>'
+        +'</div>';
+    });
+    listHtml+='</div>';
+  }
+  modal('<h3>'+esc(ds)+'</h3>'
+    +listHtml
+    +'<label>title *</label><input id="cal-t" type="text" placeholder="e.g. TIRF imaging run">'
+    +'<label>description</label><textarea id="cal-d" rows="2" placeholder="details, protocol, notes..."></textarea>'
+    +'<input type="hidden" id="cal-date" value="'+esc(dateStr)+'">'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">close</button><button class="mbtn ok" onclick="saveCalEvent()">add entry</button></div>');
+}
+
+function saveCalEvent(){
+  var t=v('cal-t');if(!t){toast('title required');return;}
+  if(!S.calendar)S.calendar=[];
+  S.calendar.push({id:'cal_'+Date.now(),date:v('cal-date'),title:t,desc:v('cal-d')});
+  save();closeModal();renderCalendar();toast('entry added');
+}
+
+function deleteCalEvent(id){
+  S.calendar=(S.calendar||[]).filter(function(ev){return ev.id!==id;});
+  save();renderCalendar();
 }
 
 function renderFeedSettings(){
