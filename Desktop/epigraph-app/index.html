@@ -1186,8 +1186,8 @@ function saveAddPaper(){
 // ── PROJECTS ──
 function renderProjects(){
   var body=document.getElementById('rbody');
-  var active=S.projects.filter(function(p){return!p.archived;});
-  var archived=S.projects.filter(function(p){return p.archived;});
+  var active=S.projects.filter(function(p){return!p.archived&&!p.parentId;});
+  var archived=S.projects.filter(function(p){return p.archived&&!p.parentId;});
   var html='<button class="newbtn" onclick="openNewProject()">+ new project</button>';
   if(!active.length&&!archived.length){
     html+='<div class="empty">no projects yet<br><span style="font-size:10px;opacity:.6">click + to create one</span></div>';
@@ -1267,8 +1267,8 @@ function openProject(pid){
 
   var back=document.createElement('div');
   back.className='pj-detail-back';
-  back.textContent=String.fromCharCode(8592)+' all projects';
-  back.onclick=function(){rtab('projects');};
+  back.textContent=p.parentId?'← parent project':'← all projects';
+  back.onclick=function(){p.parentId?openProject(p.parentId):rtab('projects');};
   hdr.appendChild(back);
 
   var titleEl=document.createElement('div');
@@ -1356,6 +1356,36 @@ function openProject(pid){
   notesArea.onblur=function(){savePjField(pid,'notes',notesArea.value);};
   notesWrap.appendChild(notesLbl);notesWrap.appendChild(notesArea);
   bdy.appendChild(notesWrap);
+
+  // Sub-projects
+  var subSec=document.createElement('div');
+  subSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+  var subHdr=document.createElement('div');
+  subHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
+  var subLbl=document.createElement('div');subLbl.className='pj-field-label';subLbl.style.margin='0';subLbl.textContent='sub-projects';
+  var addSubBtn=document.createElement('button');addSubBtn.className='lbtn';addSubBtn.style.fontSize='10px';addSubBtn.textContent='+ add';
+  addSubBtn.onclick=function(){openNewSubProject(pid);};
+  subHdr.appendChild(subLbl);subHdr.appendChild(addSubBtn);
+  subSec.appendChild(subHdr);
+  var children=S.projects.filter(function(x){return x.parentId===pid&&!x.archived;});
+  if(!children.length){
+    var subEmpty=document.createElement('div');
+    subEmpty.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px 0';
+    subEmpty.textContent='no sub-projects';
+    subSec.appendChild(subEmpty);
+  } else {
+    children.forEach(function(child){
+      var dotColor=child.status==='active'?'var(--amber)':child.status==='done'?'var(--green)':'var(--text3)';
+      var card=document.createElement('div');card.className='pj';card.style.cursor='pointer';
+      card.innerHTML='<div class="pjhd"><div class="pjdot" style="background:'+dotColor+'"></div>'
+        +'<div class="pjname">'+esc(child.name)+'</div>'
+        +'<span class="pjst">'+child.status+'</span></div>'
+        +(child.hypothesis?'<div class="pjhyp">'+esc(child.hypothesis)+'</div>':'');
+      card.onclick=function(){openProject(child.id);};
+      subSec.appendChild(card);
+    });
+  }
+  bdy.appendChild(subSec);
 
   // Log entries
   var logSection=document.createElement('div');
@@ -2897,6 +2927,21 @@ function saveNewProject(){
   var cid=v('p-c');
   S.projects.push({id:'pj_'+Date.now(),name:nm,status:v('p-s'),hypothesis:v('p-h'),linkedClaims:cid?[cid]:[],notes:v('p-no'),created:new Date().toISOString()});
   save();closeModal();updateStats();rtab('projects');toast('project created');
+}
+function openNewSubProject(parentId){
+  modal('<h3>new sub-project</h3>'
+    +'<label>name *</label><input id="p-n" type="text">'
+    +'<label>status</label><select id="p-s"><option value="planning">planning</option><option value="active">active</option><option value="paused">paused</option><option value="done">done</option></select>'
+    +'<label>hypothesis</label><input id="p-h" type="text">'
+    +'<label>notes</label><textarea id="p-no" rows="2"></textarea>'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button>'
+    +'<button class="mbtn ok" onclick="saveNewSubProject(\''+parentId+'\')">create</button></div>');
+}
+function saveNewSubProject(parentId){
+  var nm=v('p-n');if(!nm){toast('name required');return;}
+  S.projects.push({id:'pj_'+Date.now(),name:nm,status:v('p-s'),hypothesis:v('p-h'),
+    linkedClaims:[],notes:v('p-no'),created:new Date().toISOString(),parentId:parentId});
+  save();closeModal();openProject(parentId);toast('sub-project created');
 }
 
 function renderFeedSettings(){
