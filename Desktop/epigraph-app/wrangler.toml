@@ -1,8 +1,8 @@
 name = "epigraph-sync-api"
 main = "worker.js"
 compatibility_date = "2025-01-01"
-account_id = "REPLACE_WITH_YOUR_ACCOUNT_ID"
+account_id = "c505ce643d6f6ec5b4f0317fdfa3a07a"
 
 [[kv_namespaces]]
 binding = "EPIGRAPH_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "f8ea4af338424f459fba8d9de90dfbf0"
