@@ -401,6 +401,8 @@ ipcMain.handle('start-pdf-watcher', async (event, folder) => {
   }
 })
 
+ipcMain.handle('is-packaged', () => app.isPackaged)
+
 // ── APP MENU ──────────────────────────────────────────────────────────────────
 
 function buildMenu() {

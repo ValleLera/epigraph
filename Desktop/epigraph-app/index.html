@@ -102,6 +102,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .tsep{width:1px;height:20px;background:var(--border2);}
 .tstat{font-family:var(--mono);font-size:11px;color:var(--text3);}
 .tstat b{color:var(--text2);}
+#dev-badge{display:none;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);border-radius:3px;padding:2px 7px;font-size:9px;font-family:var(--mono);color:var(--amber);letter-spacing:.08em;align-items:center;}
 .spacer{flex:1;}
 #srchwrap{position:relative;display:flex;align-items:center;}
 #srch{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:5px 10px 5px 26px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;width:180px;transition:border-color .15s,width .2s;}
@@ -371,6 +372,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 <div id="shell">
 <div id="top">
   <div class="logo">epi<em>graph</em></div>
+  <div id="dev-badge">DEV</div>
   <div class="tsep"></div>
   <div class="tstat"><b id="sc">0</b> claims</div>
   <div class="tstat"><b id="slb">0</b> library</div>
@@ -580,6 +582,12 @@ async function init(){
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
   updateStats();renderPills();renderFeed();initMap();renderMap();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
+  // DEV badge — show when running via npm start (not packaged)
+  if(window.epigraph&&window.epigraph.isElectron){
+    window.epigraph.isPackaged().then(function(packed){
+      if(!packed){var b=document.getElementById('dev-badge');if(b)b.style.display='inline-flex';}
+    });
+  }
   // Start PDF watcher
   if(window.epigraph&&window.epigraph.isElectron){
     var _wf=(S.settings&&S.settings.pdfFolder)||'~/Documents/ResearchPDFs';

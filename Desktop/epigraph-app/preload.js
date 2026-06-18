@@ -31,5 +31,7 @@ contextBridge.exposeInMainWorld('epigraph', {
   startPdfWatcher:      (folder)   => ipcRenderer.invoke('start-pdf-watcher', folder),
   onPdfChanged:         (cb)       => ipcRenderer.on('pdf-changed', (_e, fname) => cb(fname)),
 
+  isPackaged: () => ipcRenderer.invoke('is-packaged'),
+
   isElectron: true
 })
