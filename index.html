@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Epigraph">
+<meta name="theme-color" content="#0d1117">
+<link rel="manifest" href="/manifest.json">
 <title>Epigraph</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
@@ -339,6 +345,19 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:7px 14px;font-size:11px;font-family:var(--mono);color:var(--text2);opacity:0;transition:opacity .25s;pointer-events:none;z-index:2000;}
 #toast.show{opacity:1;}
 .empty{text-align:center;padding:36px 16px;color:var(--text3);font-size:11px;font-family:var(--mono);line-height:2;}
+
+/* MOBILE — hide map, show right panel full-width */
+@media(max-width:767px){
+  #mapwrap{display:none!important;}
+  #div-left,#div-right{display:none!important;}
+  #feed{display:none!important;}
+  #right{width:100%!important;max-width:100%!important;border-left:none!important;flex:1!important;}
+  #rt-claim,#rt-projects,#rt-overview{display:none!important;}
+  #main{overflow-y:auto;}
+  #top .tsep,#top #srchwrap,#top .tstat{display:none!important;}
+  #top{padding:0 10px;}
+}
+
 </style>
 </head>
 <body>
@@ -487,7 +506,7 @@ var S={claims:[],library:[],projects:[],notes:[],papers:[],topics:[
   {l:'vertex model',q:'vertex model epithelial tissue mechanics',on:false},
   {l:'E-cadherin',q:'E-cadherin adherens junction mechanics',on:false},
   {l:'traction force',q:'traction force monolayer stress microscopy',on:false},
-],settings:{zoomSpeed:0.04,nodeSize:1,edgeOpacity:0.25,visStrands:{jam:true,col:true,yap:true,nuc:true}},streak:1,lastOpen:new Date().toDateString()};
+],settings:{zoomSpeed:0.04,nodeSize:1,edgeOpacity:0.25,visStrands:{jam:true,col:true,yap:true,nuc:true}},streak:1,lastOpen:new Date().toDateString(),lastSaved:0};
 
 var selId=null,ctxId=null,mapF='all',weakMode=false,rightTab='claim';
 var tx=0,ty=0,sc=1,panning=false,psx=0,psy=0,pox=0,poy=0;
@@ -542,17 +561,57 @@ async function init(){
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
     document.getElementById('stklbl').textContent='day '+S.streak;
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];
+    var _cloud=await syncPull();
+    if(_cloud&&_cloud.data&&(_cloud.updatedAt||0)>(S.lastSaved||0)){
+      var cp=_cloud.data;
+      S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
+      S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
+      S.inbox=cp.inbox||S.inbox;S.topics=cp.topics||S.topics;
+      S.settings=Object.assign({},S.settings,cp.settings||{});
+      S.streak=cp.streak||S.streak;S.lastOpen=cp.lastOpen||S.lastOpen;
+      S.dailyNotes=cp.dailyNotes||S.dailyNotes;S.calendar=cp.calendar||S.calendar;
+      S.lastSaved=cp.lastSaved||S.lastSaved;
+      try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e2){}
+      toast('↓ synced from cloud');
+    }
   }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
   updateStats();renderPills();renderFeed();initMap();renderMap();
+  if(window.innerWidth<=767)rtab('today');
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
 }
 function dc(o){return JSON.parse(JSON.stringify(o));}
 function save(){
+  S.lastSaved=Date.now();
   if(window.epigraph && window.epigraph.isElectron){
     window.epigraph.saveData(S).catch(function(e){console.error('save error',e);});
   } else {
     try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e){}
   }
+  syncPush();
+}
+
+var _syncTimer=null;
+function syncCfg(){return(S.settings&&S.settings.sync)||{};}
+function syncPush(){
+  var c=syncCfg();if(!c.enabled||!c.token||!c.url)return;
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(function(){
+    fetch(c.url+'/data',{method:'PUT',
+      headers:{'Authorization':'Bearer '+c.token,'Content-Type':'application/json'},
+      body:JSON.stringify({data:S,updatedAt:S.lastSaved})
+    }).then(function(r){
+      var el=document.getElementById('sync-status');
+      if(el)el.textContent=r.ok?'✓ '+new Date().toLocaleTimeString():'✗ '+r.status;
+    }).catch(function(){});
+  },2000);
+}
+async function syncPull(){
+  var c=syncCfg();if(!c.enabled||!c.token||!c.url)return null;
+  try{
+    var r=await fetch(c.url+'/data',{headers:{'Authorization':'Bearer '+c.token}});
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
 }
 
 
@@ -2569,6 +2628,53 @@ function renderFeedSettings(){
 
   dtRow.appendChild(mkBtn('reset all',resetData,'color:var(--red);border-color:rgba(239,68,68,.3)'));
   panel.appendChild(dtRow);
+
+  var syncSep=document.createElement('div');syncSep.style.cssText='height:1px;background:var(--border);margin:10px 0';panel.appendChild(syncSep);
+  mkTitle('sync');
+  var sc2=syncCfg();
+  var inpStyle='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:0.85rem;font-family:var(--mono);outline:none;margin-bottom:6px;box-sizing:border-box';
+
+  panel.appendChild(mkLabel('worker url'));
+  var urlInp=document.createElement('input');urlInp.type='text';urlInp.style.cssText=inpStyle;
+  urlInp.placeholder='https://epigraph-sync-api.<subdomain>.workers.dev';
+  urlInp.value=sc2.url||'';
+  urlInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.url=urlInp.value.trim();save();};
+  panel.appendChild(urlInp);
+
+  panel.appendChild(mkLabel('api token'));
+  var tokInp=document.createElement('input');tokInp.type='password';tokInp.style.cssText=inpStyle;
+  tokInp.placeholder='••••••••';
+  tokInp.value=sc2.token||'';
+  tokInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.token=tokInp.value.trim();save();};
+  panel.appendChild(tokInp);
+
+  var syncBtnRow=document.createElement('div');syncBtnRow.style.cssText='display:flex;gap:6px;margin-top:4px;margin-bottom:6px';
+  var enBtn=document.createElement('button');enBtn.className='lbtn'+(sc2.enabled?' on':'');
+  enBtn.style.flex='1';enBtn.textContent=sc2.enabled?'sync on':'sync off';
+  enBtn.onclick=function(){
+    if(!S.settings.sync)S.settings.sync={};
+    S.settings.sync.enabled=!S.settings.sync.enabled;save();
+    enBtn.textContent=S.settings.sync.enabled?'sync on':'sync off';
+    enBtn.classList.toggle('on',S.settings.sync.enabled);
+  };
+  var nowBtn=document.createElement('button');nowBtn.className='lbtn';nowBtn.style.flex='1';nowBtn.textContent='push now';
+  nowBtn.onclick=async function(){
+    var c=syncCfg();if(!c.enabled||!c.token||!c.url){statusEl.textContent='not configured';return;}
+    statusEl.textContent='pushing…';
+    try{
+      S.lastSaved=Date.now();
+      var r=await fetch(c.url+'/data',{method:'PUT',
+        headers:{'Authorization':'Bearer '+c.token,'Content-Type':'application/json'},
+        body:JSON.stringify({data:S,updatedAt:S.lastSaved})});
+      statusEl.textContent=r.ok?'✓ pushed '+new Date().toLocaleTimeString():'✗ error '+r.status;
+    }catch(e){statusEl.textContent='✗ network error';}
+  };
+  syncBtnRow.appendChild(enBtn);syncBtnRow.appendChild(nowBtn);
+  panel.appendChild(syncBtnRow);
+
+  var statusEl=document.createElement('div');statusEl.id='sync-status';
+  statusEl.style.cssText='font-family:var(--mono);font-size:0.77rem;color:var(--text3);min-height:16px';
+  panel.appendChild(statusEl);
 }
 
 
