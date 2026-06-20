@@ -403,6 +403,14 @@ ipcMain.handle('start-pdf-watcher', async (event, folder) => {
 
 ipcMain.handle('is-packaged', () => app.isPackaged)
 
+ipcMain.handle('read-file-bytes', async (event, filePath) => {
+  try {
+    const expanded = filePath.replace(/^~/, app.getPath('home'))
+    const buf = fs.readFileSync(expanded)
+    return { ok: true, buffer: buf, size: buf.length }
+  } catch (e) { return { ok: false, error: e.message } }
+})
+
 // ── APP MENU ──────────────────────────────────────────────────────────────────
 
 function buildMenu() {

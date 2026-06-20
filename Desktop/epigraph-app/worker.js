@@ -3,8 +3,10 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors() });
     }
-    const { pathname } = new URL(request.url);
-    const auth = request.headers.get('Authorization') || '';
+    const url = new URL(request.url);
+    const { pathname } = url;
+    const tokenFromQuery = url.searchParams.get('token');
+    const auth = request.headers.get('Authorization') || (tokenFromQuery ? `Bearer ${tokenFromQuery}` : '');
     if (auth !== `Bearer ${env.API_TOKEN}`) {
       return json({ error: 'Unauthorized' }, 401);
     }
@@ -23,6 +25,28 @@ export default {
         return json({ ok: true });
       }
     }
+    if (pathname.startsWith('/pdf/')) {
+      const key = decodeURIComponent(pathname.slice(5));
+      if (!key) return json({ error: 'Bad Request' }, 400);
+      if (request.method === 'GET') {
+        const obj = await env.PDF_BUCKET.get(key);
+        if (!obj) return json({ error: 'Not Found' }, 404);
+        return new Response(obj.body, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="${key}"`,
+            ...cors()
+          }
+        });
+      }
+      if (request.method === 'PUT') {
+        const body = await request.arrayBuffer();
+        await env.PDF_BUCKET.put(key, body, {
+          httpMetadata: { contentType: 'application/pdf' }
+        });
+        return json({ ok: true });
+      }
+    }
     return json({ error: 'Not Found' }, 404);
   }
 };
@@ -38,6 +62,7 @@ function cors() {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Expose-Headers': 'Content-Disposition'
   };
 }
