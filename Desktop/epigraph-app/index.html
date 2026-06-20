@@ -419,7 +419,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   #div-left,#div-right{display:none!important;}
   #feed{display:none!important;}
   #right{width:100%!important;max-width:100%!important;border-left:none!important;flex:1!important;}
-  #rt-claim,#rt-projects,#rt-overview{display:none!important;}
+  #rt-claim,#rt-overview{display:none!important;}
   #rt-settings{display:flex!important;}
   #main{overflow-y:auto;}
   #top .tsep,#top #srchwrap,#top .tstat{display:none!important;}
@@ -429,6 +429,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 </style>
 </head>
 <body>
+<div id="app-loading" style="position:fixed;inset:0;background:#0d1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;color:#8899aa">loading…</div>
 <div id="shell">
 <div id="top">
   <div class="logo">epi<em>graph</em></div>
@@ -617,55 +618,99 @@ var SEED_NOTES=[
 ];
 
 // ══ INIT ══
+function _idbOpen(){
+  return new Promise(function(res,rej){
+    var r=indexedDB.open('epigraph-db',1);
+    r.onupgradeneeded=function(e){e.target.result.createObjectStore('kv');};
+    r.onsuccess=function(e){res(e.target.result);};
+    r.onerror=rej;
+  });
+}
+async function idbSave(val){
+  try{
+    var db=await _idbOpen();
+    return new Promise(function(res,rej){
+      var tx=db.transaction('kv','readwrite');
+      tx.objectStore('kv').put(val,'epigraph');
+      tx.oncomplete=res;tx.onerror=rej;
+    });
+  }catch(e){console.warn('idbSave failed',e);}
+}
+async function idbLoad(){
+  try{
+    var db=await _idbOpen();
+    return new Promise(function(res,rej){
+      var tx=db.transaction('kv','readonly');
+      var r=tx.objectStore('kv').get('epigraph');
+      r.onsuccess=function(){res(r.result||null);};
+      r.onerror=rej;
+    });
+  }catch(e){console.warn('idbLoad failed',e);return null;}
+}
+
 async function init(){
+  // Block A: load local data
   try{
     var p=null;
     if(window.epigraph&&window.epigraph.isElectron){
       try{p=await window.epigraph.loadData();}catch(e){}
-      // Migration: if no file data yet, try localStorage
       if(!p){
         var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3');
         if(sv)try{p=JSON.parse(sv);window.epigraph.saveData(p);}catch(e){}
       }
     } else {
-      var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
-      if(sv)try{p=JSON.parse(sv);}catch(e){}
+      p=await idbLoad();
+      if(!p){
+        var sv=localStorage.getItem('epigraph')||localStorage.getItem('epg3')||localStorage.getItem('epg2')||localStorage.getItem('epigraph_v1');
+        if(sv)try{p=JSON.parse(sv);idbSave(p).catch(function(){});localStorage.removeItem('epigraph');}catch(e){}
+      }
     }
     if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};S.calendar=p.calendar||[];}
     else{S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);}
+    if(!S.settings.sync||!S.settings.sync.url){try{var sc=localStorage.getItem('epigraph_sync');if(sc)S.settings.sync=JSON.parse(sc);}catch(e){}}
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
-  
     if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
     applyTheme(S.settings.theme||'void');
     applyFontSize(S.settings.fontSize||13);
-    // Clean up entries with bare-filename pdfPath (Electron 32+ file.path bug)
     var badPdf=false;
     S.library.forEach(function(x){if(x.pdfPath&&!x.pdfPath.startsWith('/')){x.pdfPath=null;badPdf=true;}});
     if(badPdf)save();
-    var _cloud=await syncPull();
+  }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
+
+  // Block B: cloud sync (never wipes S on failure)
+  try{
     var isWeb=!(window.epigraph&&window.epigraph.isElectron);
+    if(isWeb&&S.settings.sync&&S.settings.sync.url){
+      try{localStorage.setItem('epigraph_sync',JSON.stringify(S.settings.sync));}catch(e){}
+    }
+    var _cloud=await syncPull();
     if(_cloud&&_cloud.data&&(isWeb||(_cloud.updatedAt||0)>(S.lastSaved||0))){
       var cp=_cloud.data;
+      var savedSync=S.settings.sync;
       S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
       S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
       S.inbox=cp.inbox||S.inbox;S.topics=cp.topics||S.topics;
       S.settings=Object.assign({},S.settings,cp.settings||{});
+      S.settings.sync=savedSync;
       S.streak=cp.streak||S.streak;S.lastOpen=cp.lastOpen||S.lastOpen;
       S.dailyNotes=cp.dailyNotes||S.dailyNotes;S.calendar=cp.calendar||S.calendar;
       S.lastSaved=cp.lastSaved||S.lastSaved;
       if(window.epigraph&&window.epigraph.isElectron){
         window.epigraph.saveData(S).catch(function(){});
-      } else {
-        try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e2){}
+      }else{
+        idbSave(S).catch(function(){});
       }
       applyTheme(S.settings.theme||'void');
       applyFontSize(S.settings.fontSize||13);
       toast('↓ synced from cloud');
     }
-  }catch(e){S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);S.library=[];}
+  }catch(e){console.warn('sync pull failed',e);}
+
+  // Block C: render
   updateStats();renderPills();renderFeed();initMap();renderMap();
   if(window.innerWidth<=767)rtab('today');
+  var loadEl=document.getElementById('app-loading');if(loadEl)loadEl.remove();
   setTimeout(function(){fit();document.getElementById('maphint').style.opacity='0';},500);
   // DEV badge — show when running via npm start (not packaged)
   if(window.epigraph&&window.epigraph.isElectron){
@@ -700,7 +745,7 @@ function save(){
   if(window.epigraph && window.epigraph.isElectron){
     window.epigraph.saveData(S).catch(function(e){console.error('save error',e);});
   } else {
-    try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e){}
+    idbSave(S).catch(function(){});
   }
   syncPush();
 }
@@ -767,7 +812,8 @@ async function pullNow(statusEl){
     if(window.epigraph&&window.epigraph.isElectron){
       window.epigraph.saveData(S).catch(function(){});
     }else{
-      try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e2){console.warn('localStorage full',e2);}
+      idbSave(S).catch(function(){});
+      try{localStorage.setItem('epigraph_sync',JSON.stringify(S.settings.sync||{}));}catch(e2){}
     }
     applyTheme(S.settings.theme||'void');applyFontSize(S.settings.fontSize||13);
     updateStats();renderPills();renderFeed();renderMap();renderRight();
@@ -1297,8 +1343,7 @@ function selectLibPaper(id){
   // Buttons
   var btns=document.createElement('div');btns.className='mbtns';
   var closeBtn=document.createElement('button');closeBtn.className='mbtn';closeBtn.textContent='close';closeBtn.onclick=closeModal;
-  var delBtn=document.createElement('button');delBtn.className='mbtn';delBtn.style.cssText='color:var(--red);border-color:rgba(239,68,68,.3)';delBtn.textContent='delete';
-  delBtn.onclick=function(){deleteLibPaper(id);};
+  var delBtn=null; // delete removed to avoid accidental loss
   var saveBtn=document.createElement('button');saveBtn.className='mbtn ok';saveBtn.textContent='save';
   saveBtn.onclick=function(){
     p.tags=tagsEl.value.split(',').map(function(t){return t.trim();}).filter(Boolean);
@@ -1307,7 +1352,7 @@ function selectLibPaper(id){
   };
   var bibBtn=document.createElement('button');bibBtn.className='mbtn';bibBtn.textContent='copy BibTeX';
   bibBtn.onclick=function(){copyBibtex(p);};
-  btns.appendChild(closeBtn);btns.appendChild(delBtn);btns.appendChild(bibBtn);btns.appendChild(saveBtn);
+  btns.appendChild(closeBtn);btns.appendChild(bibBtn);btns.appendChild(saveBtn);
   wrap.appendChild(btns);
 
   // Use DOM-based modal
@@ -1576,9 +1621,9 @@ function openProject(pid){
   footer.appendChild(delBtn);
   bdy.appendChild(footer);
 
-  // Analysis section
+  // Analysis section — hidden on mobile
   var analysisSec=document.createElement('div');
-  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+  analysisSec.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)'+(window.innerWidth<=767?';display:none':'');
   var analysisLbl=document.createElement('div');
   analysisLbl.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer';
   var analysisTitle=document.createElement('div');analysisTitle.className='pj-field-label';analysisTitle.style.margin='0';analysisTitle.textContent='analysis';
@@ -3392,14 +3437,14 @@ function renderFeedSettings(targetEl){
   var urlInp=document.createElement('input');urlInp.type='text';urlInp.style.cssText=inpStyle;
   urlInp.placeholder='https://epigraph-sync-api.<subdomain>.workers.dev';
   urlInp.value=sc2.url||'';
-  urlInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.url=urlInp.value.trim().replace(/\/+$/,'');save();};
+  urlInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.url=urlInp.value.trim().replace(/\/+$/,'');save();try{localStorage.setItem('epigraph_sync',JSON.stringify(S.settings.sync));}catch(e){}};
   panel.appendChild(urlInp);
 
   panel.appendChild(mkLabel('api token'));
   var tokInp=document.createElement('input');tokInp.type='password';tokInp.style.cssText=inpStyle;
   tokInp.placeholder='••••••••';
   tokInp.value=sc2.token||'';
-  tokInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.token=tokInp.value.trim();save();};
+  tokInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.token=tokInp.value.trim();save();try{localStorage.setItem('epigraph_sync',JSON.stringify(S.settings.sync));}catch(e){}};
   panel.appendChild(tokInp);
 
   var syncBtnRow=document.createElement('div');syncBtnRow.style.cssText='display:flex;gap:6px;margin-top:4px;margin-bottom:6px;flex-wrap:wrap';
@@ -3407,7 +3452,7 @@ function renderFeedSettings(targetEl){
   enBtn.style.flex='1';enBtn.textContent=sc2.enabled?'sync on':'sync off';
   enBtn.onclick=function(){
     if(!S.settings.sync)S.settings.sync={};
-    S.settings.sync.enabled=!S.settings.sync.enabled;save();
+    S.settings.sync.enabled=!S.settings.sync.enabled;save();try{localStorage.setItem('epigraph_sync',JSON.stringify(S.settings.sync));}catch(e){}
     enBtn.textContent=S.settings.sync.enabled?'sync on':'sync off';
     enBtn.classList.toggle('on',S.settings.sync.enabled);
   };
