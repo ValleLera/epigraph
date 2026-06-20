@@ -1,0 +1,41 @@
+{
+  "name": "epigraph",
+  "version": "1.0.0",
+  "description": "A claims-first research knowledge OS",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-mac": "electron-builder --mac --dir"
+  },
+  "author": "Valeriia Grudtsyna",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "40.0.0",
+    "electron-builder": "^25.0.0",
+    "playwright-core": "^1.61.0"
+  },
+  "build": {
+    "appId": "com.epigraph.app",
+    "productName": "Epigraph",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "icons/icon.icns",
+      "target": {
+        "target": "dir",
+        "arch": [
+          "arm64"
+        ]
+      }
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "icons/**"
+    ]
+  }
+}
