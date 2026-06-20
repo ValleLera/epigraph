@@ -6,3 +6,6 @@ account_id = "c505ce643d6f6ec5b4f0317fdfa3a07a"
 [[kv_namespaces]]
 binding = "EPIGRAPH_KV"
 id = "f8ea4af338424f459fba8d9de90dfbf0"
+
+[vars]
+API_TOKEN = "epigraph-sync-2026"

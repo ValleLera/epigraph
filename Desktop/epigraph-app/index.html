@@ -420,6 +420,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   #feed{display:none!important;}
   #right{width:100%!important;max-width:100%!important;border-left:none!important;flex:1!important;}
   #rt-claim,#rt-projects,#rt-overview{display:none!important;}
+  #rt-settings{display:flex!important;}
   #main{overflow-y:auto;}
   #top .tsep,#top #srchwrap,#top .tstat{display:none!important;}
   #top{padding:0 10px;}
@@ -538,6 +539,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <div class="rtab" id="rt-notes" onclick="rtab('notes')">notes</div>
     <div class="rtab" id="rt-overview" onclick="rtab('overview')">overview</div>
     <div class="rtab" id="rt-calendar" onclick="rtab('calendar')">calendar</div>
+    <div class="rtab" id="rt-settings" onclick="rtab('settings')" style="display:none">⚙</div>
   </div>
   <div id="rbody"><div class="empty">click a node<br>to explore</div></div>
 </div>
@@ -642,7 +644,8 @@ async function init(){
     S.library.forEach(function(x){if(x.pdfPath&&!x.pdfPath.startsWith('/')){x.pdfPath=null;badPdf=true;}});
     if(badPdf)save();
     var _cloud=await syncPull();
-    if(_cloud&&_cloud.data&&(_cloud.updatedAt||0)>(S.lastSaved||0)){
+    var isWeb=!(window.epigraph&&window.epigraph.isElectron);
+    if(_cloud&&_cloud.data&&(isWeb||(_cloud.updatedAt||0)>(S.lastSaved||0))){
       var cp=_cloud.data;
       S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
       S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
@@ -704,13 +707,31 @@ function save(){
 
 var _syncTimer=null;
 function syncCfg(){return(S.settings&&S.settings.sync)||{};}
+function stripImagesForSync(data){
+  var d=JSON.parse(JSON.stringify(data));
+  function stripBlocks(blocks){
+    if(!Array.isArray(blocks))return blocks;
+    return blocks.map(function(b){
+      if(b.type==='image'&&b.content&&b.content.src&&b.content.src.startsWith('data:')){
+        return Object.assign({},b,{content:{src:'',caption:b.content.caption||''}});
+      }
+      return b;
+    });
+  }
+  (d.projects||[]).forEach(function(p){
+    (p.logs||[]).forEach(function(l){if(l.blocks)l.blocks=stripBlocks(l.blocks);});
+    (p.analyses||[]).forEach(function(a){if(a.blocks)a.blocks=stripBlocks(a.blocks);});
+  });
+  (d.notes||[]).forEach(function(n){if(n.blocks)n.blocks=stripBlocks(n.blocks);});
+  return d;
+}
 function syncPush(){
   var c=syncCfg();if(!c.enabled||!c.token||!c.url)return;
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(function(){
     fetch(c.url+'/data',{method:'PUT',
       headers:{'Authorization':'Bearer '+c.token,'Content-Type':'application/json'},
-      body:JSON.stringify({data:S,updatedAt:S.lastSaved})
+      body:JSON.stringify({data:stripImagesForSync(S),updatedAt:Date.now()+60000})
     }).then(function(r){
       var el=document.getElementById('sync-status');
       if(el)el.textContent=r.ok?'✓ '+new Date().toLocaleTimeString():'✗ '+r.status;
@@ -721,9 +742,38 @@ async function syncPull(){
   var c=syncCfg();if(!c.enabled||!c.token||!c.url)return null;
   try{
     var r=await fetch(c.url+'/data',{headers:{'Authorization':'Bearer '+c.token}});
-    if(!r.ok)return null;
+    if(!r.ok){console.warn('syncPull HTTP error',r.status);return null;}
     return await r.json();
-  }catch(e){return null;}
+  }catch(e){console.warn('syncPull error',e);return null;}
+}
+async function pullNow(statusEl){
+  var c=syncCfg();
+  if(!c.url||!c.token){if(statusEl)statusEl.textContent='✗ not configured';return;}
+  var fetchUrl=c.url.replace(/\/+$/,'')+'/data';
+  if(statusEl)statusEl.textContent='→ '+fetchUrl;
+  try{
+    var r=await fetch(fetchUrl,{headers:{'Authorization':'Bearer '+c.token}});
+    if(!r.ok){if(statusEl)statusEl.textContent='✗ HTTP '+r.status+' ('+fetchUrl+')';return;}
+    var cloud=await r.json();
+    if(!cloud||!cloud.data){if(statusEl)statusEl.textContent='✗ no data in cloud';return;}
+    var cp=cloud.data;
+    S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
+    S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
+    S.inbox=cp.inbox||S.inbox;S.topics=cp.topics||S.topics;
+    S.settings=Object.assign({},S.settings,cp.settings||{});
+    S.streak=cp.streak||S.streak;S.lastOpen=cp.lastOpen||S.lastOpen;
+    S.dailyNotes=cp.dailyNotes||S.dailyNotes;S.calendar=cp.calendar||S.calendar;
+    S.lastSaved=cp.lastSaved||S.lastSaved;
+    if(window.epigraph&&window.epigraph.isElectron){
+      window.epigraph.saveData(S).catch(function(){});
+    }else{
+      try{localStorage.setItem('epigraph',JSON.stringify(S));}catch(e2){console.warn('localStorage full',e2);}
+    }
+    applyTheme(S.settings.theme||'void');applyFontSize(S.settings.fontSize||13);
+    updateStats();renderPills();renderFeed();renderMap();renderRight();
+    if(statusEl)statusEl.textContent='✓ pulled '+new Date().toLocaleTimeString();
+    toast('↓ synced from cloud');
+  }catch(e){if(statusEl)statusEl.textContent='✗ '+e.message;}
 }
 
 
@@ -904,6 +954,7 @@ function renderRight(){
   else if(rightTab==='notes')renderNotes();
   else if(rightTab==='overview')renderOverview();
   else if(rightTab==='calendar')renderCalendar();
+  else if(rightTab==='settings'){var rb=document.getElementById('rbody');rb.innerHTML='';rb.style.cssText='overflow-y:auto;padding:12px';renderFeedSettings(rb);}
 
 }
 
@@ -1150,16 +1201,19 @@ function selectLibPaper(id){
     pdfViewInner.textContent=p.pdfPath.split('/').pop();
     var pdfOpenBtn=document.createElement('button');
     pdfOpenBtn.className='lbtn';pdfOpenBtn.style.cssText='margin-top:8px;font-size:11px';
-    pdfOpenBtn.textContent='open PDF in Preview';
-    pdfOpenBtn.onclick=function(){
-      if(window.epigraph&&window.epigraph.isElectron){
+    if(window.epigraph&&window.epigraph.isElectron){
+      pdfOpenBtn.textContent='open PDF in Preview';
+      pdfOpenBtn.onclick=function(){
         window.epigraph.openPath(p.pdfPath,'finder').then(function(r){
           if(!r.ok)toast('cannot open — is the file still at this path?');
         });
-      } else {
-        window.open(p.pdfPath,'_blank');
-      }
-    };
+      };
+    } else {
+      pdfOpenBtn.textContent='PDF on desktop only';
+      pdfOpenBtn.disabled=true;
+      pdfOpenBtn.style.opacity='0.4';
+      pdfOpenBtn.style.cursor='default';
+    }
     pdfViewBtn.appendChild(pdfViewInner);pdfViewBtn.appendChild(pdfOpenBtn);
     pdfSec.appendChild(pdfViewBtn);
   } else {
@@ -3215,8 +3269,8 @@ function _calDeleteClick(){
   _calClickedEv=null;
 }
 
-function renderFeedSettings(){
-  var panel=document.getElementById('feed-settings-panel');
+function renderFeedSettings(targetEl){
+  var panel=targetEl||document.getElementById('feed-settings-panel');
   if(!panel)return;
   panel.innerHTML='';
 
@@ -3338,7 +3392,7 @@ function renderFeedSettings(){
   var urlInp=document.createElement('input');urlInp.type='text';urlInp.style.cssText=inpStyle;
   urlInp.placeholder='https://epigraph-sync-api.<subdomain>.workers.dev';
   urlInp.value=sc2.url||'';
-  urlInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.url=urlInp.value.trim();save();};
+  urlInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.url=urlInp.value.trim().replace(/\/+$/,'');save();};
   panel.appendChild(urlInp);
 
   panel.appendChild(mkLabel('api token'));
@@ -3348,7 +3402,7 @@ function renderFeedSettings(){
   tokInp.onchange=function(){if(!S.settings.sync)S.settings.sync={};S.settings.sync.token=tokInp.value.trim();save();};
   panel.appendChild(tokInp);
 
-  var syncBtnRow=document.createElement('div');syncBtnRow.style.cssText='display:flex;gap:6px;margin-top:4px;margin-bottom:6px';
+  var syncBtnRow=document.createElement('div');syncBtnRow.style.cssText='display:flex;gap:6px;margin-top:4px;margin-bottom:6px;flex-wrap:wrap';
   var enBtn=document.createElement('button');enBtn.className='lbtn'+(sc2.enabled?' on':'');
   enBtn.style.flex='1';enBtn.textContent=sc2.enabled?'sync on':'sync off';
   enBtn.onclick=function(){
@@ -3357,6 +3411,8 @@ function renderFeedSettings(){
     enBtn.textContent=S.settings.sync.enabled?'sync on':'sync off';
     enBtn.classList.toggle('on',S.settings.sync.enabled);
   };
+  var pullBtn=document.createElement('button');pullBtn.className='lbtn';pullBtn.style.flex='1';pullBtn.textContent='pull now';
+  pullBtn.onclick=function(){pullNow(statusEl);};
   var nowBtn=document.createElement('button');nowBtn.className='lbtn';nowBtn.style.flex='1';nowBtn.textContent='push now';
   nowBtn.onclick=async function(){
     var c=syncCfg();if(!c.enabled||!c.token||!c.url){statusEl.textContent='not configured';return;}
@@ -3365,11 +3421,11 @@ function renderFeedSettings(){
       S.lastSaved=Date.now();
       var r=await fetch(c.url+'/data',{method:'PUT',
         headers:{'Authorization':'Bearer '+c.token,'Content-Type':'application/json'},
-        body:JSON.stringify({data:S,updatedAt:S.lastSaved})});
+        body:JSON.stringify({data:stripImagesForSync(S),updatedAt:Date.now()+60000})});
       statusEl.textContent=r.ok?'✓ pushed '+new Date().toLocaleTimeString():'✗ error '+r.status;
     }catch(e){statusEl.textContent='✗ network error';}
   };
-  syncBtnRow.appendChild(enBtn);syncBtnRow.appendChild(nowBtn);
+  syncBtnRow.appendChild(enBtn);syncBtnRow.appendChild(pullBtn);syncBtnRow.appendChild(nowBtn);
   panel.appendChild(syncBtnRow);
 
   var statusEl=document.createElement('div');statusEl.id='sync-status';

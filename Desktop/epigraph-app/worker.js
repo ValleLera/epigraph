@@ -3,11 +3,11 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors() });
     }
+    const { pathname } = new URL(request.url);
     const auth = request.headers.get('Authorization') || '';
     if (auth !== `Bearer ${env.API_TOKEN}`) {
       return json({ error: 'Unauthorized' }, 401);
     }
-    const { pathname } = new URL(request.url);
     if (pathname === '/health') {
       return json({ ok: true });
     }
