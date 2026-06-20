@@ -155,7 +155,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .divider:hover,.divider.dragging{background:var(--amber);}
 
 /* FEED */
-#feed{width:280px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#feed{width:280px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
 .phd{padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .pttl{font-family:var(--mono);font-size:0.77rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;}
 .pills{display:flex;gap:4px;flex-wrap:wrap;}
@@ -420,6 +420,9 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   #feed{display:none!important;}
   #right{width:100%!important;max-width:100%!important;border-left:none!important;flex:1!important;}
   #rt-claim,#rt-overview{display:none!important;}
+}
+@media(min-width:768px){
+  #rt-settings{display:none!important;}
   #main{overflow-y:auto;}
   #top .tsep,#top #srchwrap,#top .tstat{display:none!important;}
   #top{padding:0 10px;}
@@ -481,7 +484,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div id="feed-list"><div class="empty">fetch papers to review<br><span style="font-size:10px;opacity:.6">focused = your keywords<br>broad = derived from your claims</span></div></div>
   <div style="flex-shrink:0;border-top:1px solid var(--border);">
     <div id="feed-settings-btn" onclick="toggleFeedSettings()" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text3);transition:color .15s;"><span>&#9881;</span><span>settings</span></div>
-    <div id="feed-settings-panel" style="display:none;padding:0 12px 10px;overflow-y:auto;max-height:70vh;"></div>
+    <div id="feed-settings-panel" style="display:none;position:absolute;bottom:36px;left:0;right:0;max-height:calc(100% - 36px);overflow-y:auto;background:var(--bg2);border-top:1px solid var(--border);z-index:20;padding:0 12px 10px;"></div>
   </div>
 </div>
 
@@ -758,7 +761,7 @@ function r2StorageUsed(){
 }
 async function uploadPdfToR2(filePath,libEntry){
   var c=syncCfg();
-  if(!c.enabled||!c.url||!c.token)return false;
+  if(!c.url||!c.token)return false;
   if(S.settings&&S.settings.r2UploadsBlocked)return false;
   try{
     var res=await window.epigraph.readFileBytes(filePath);
@@ -786,21 +789,28 @@ async function uploadPdfToR2(filePath,libEntry){
   }catch(e){return false;}
 }
 async function bulkUploadPdfs(statusEl,stopFlag){
+  var c=syncCfg();
+  if(!c.url||!c.token){statusEl.textContent='✗ set worker URL and token in sync settings first';return;}
   var pending=(S.library||[]).filter(function(p){return p.pdfPath&&!p.pdfR2Key;});
   if(!pending.length){statusEl.textContent='nothing to upload';return;}
   var done=0,skipped=0;
+  var limitBytes=R2_LIMIT_BYTES;
   for(var i=0;i<pending.length;i++){
     if(stopFlag&&stopFlag.stop){statusEl.textContent='stopped at '+i+'/'+pending.length+' ('+done+' ok)';save();return;}
     if(S.settings&&S.settings.r2UploadsBlocked){save();statusEl.textContent='⚠ paused at 80% — click Resume uploads in Settings';return;}
     var p=pending[i];
     statusEl.textContent=(i+1)+'/'+pending.length+' uploading… ('+done+' ok)';
     var ok=await uploadPdfToR2(p.pdfPath,p);
-    if(ok)done++;else skipped++;
+    if(ok){
+      done++;
+      var fill=document.getElementById('r2-bar-fill');
+      if(fill){var pct=Math.min(100,r2StorageUsed()/limitBytes*100);fill.style.width=pct.toFixed(1)+'%';fill.style.background=pct>=80?'var(--amber)':'var(--cyan)';}
+    }else skipped++;
     if(done%10===0&&done>0)save();
     await new Promise(function(r){setTimeout(r,150);});
   }
   save();
-  statusEl.textContent='✓ done — '+done+'/'+pending.length+' uploaded'+(skipped?' ('+skipped+' failed)':'');
+  statusEl.textContent='✓ done — '+done+'/'+pending.length+' uploaded'+(skipped?' · '+skipped+' failed':'');
 }
 function stripImagesForSync(data){
   var d=JSON.parse(JSON.stringify(data));
@@ -3547,7 +3557,7 @@ function renderFeedSettings(targetEl){
     barLbl.textContent=usedStr+' / 10 GB  ·  '+r2Count+' PDFs in R2';
     panel.appendChild(barLbl);
     var barBg=document.createElement('div');barBg.style.cssText='height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:8px';
-    var barFill=document.createElement('div');barFill.style.cssText='height:100%;width:'+pct.toFixed(1)+'%;background:'+(pct>=80?'var(--amber)':'var(--cyan)');
+    var barFill=document.createElement('div');barFill.id='r2-bar-fill';barFill.style.cssText='height:100%;width:'+pct.toFixed(1)+'%;background:'+(pct>=80?'var(--amber)':'var(--cyan)');
     barBg.appendChild(barFill);panel.appendChild(barBg);
     // bulk upload button
     var bulkStatus=document.createElement('div');bulkStatus.style.cssText='font-family:var(--mono);font-size:9px;color:var(--text3);min-height:14px;margin-bottom:4px';
@@ -3558,14 +3568,16 @@ function renderFeedSettings(targetEl){
     bulkBtn.textContent='upload '+pendingCount+' PDFs to R2';
     if(isBlocked||!pendingCount){bulkBtn.disabled=true;bulkBtn.style.opacity='0.4';}
     else{
-      bulkBtn.onclick=function(){
+      function bulkBtnClick(){
         stopFlag.stop=false;
         bulkBtn.textContent='stop upload';
         bulkBtn.onclick=function(){stopFlag.stop=true;};
         bulkUploadPdfs(bulkStatus,stopFlag).then(function(){
-          var rb=document.getElementById('rbody');rb.innerHTML='';renderFeedSettings(rb);
+          bulkBtn.textContent='upload remaining PDFs to R2';
+          bulkBtn.onclick=bulkBtnClick;
         });
-      };
+      }
+      bulkBtn.onclick=bulkBtnClick;
     }
     panel.appendChild(bulkBtn);
   }
