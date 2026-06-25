@@ -1697,19 +1697,24 @@ function bkRenderPage(pdf,pageNum,container,b){
   wrap.innerHTML='<div style="width:680px;height:300px;display:flex;align-items:center;justify-content:center;color:#aaa;font-family:monospace;font-size:11px">page '+pageNum+'…</div>';
   container.appendChild(wrap);
   pdf.getPage(pageNum).then(function(page){
-    var scale=1.5,vp=page.getViewport({scale:scale});
+    var scale=1.5,dpr=window.devicePixelRatio||1;
+    var vp=page.getViewport({scale:scale});
     wrap.style.width=vp.width+'px';
     wrap.innerHTML='';
     var canvas=document.createElement('canvas');
-    canvas.width=vp.width;canvas.height=vp.height;
+    canvas.width=Math.floor(vp.width*dpr);
+    canvas.height=Math.floor(vp.height*dpr);
     canvas.style.cssText='display:block;width:'+vp.width+'px;height:'+vp.height+'px;';
     var tl=document.createElement('div');tl.className='bk-text-layer';
     tl.style.height=vp.height+'px';
+    tl.style.setProperty('--scale-factor',scale);
     wrap.appendChild(canvas);wrap.appendChild(tl);
-    page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise.then(function(){
+    var ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){
       page.getTextContent().then(function(tc){
         var textDivs=[];
-        var tlTask=window._pdfjsLib.renderTextLayer({textContent:tc,container:tl,viewport:vp,textDivs:textDivs});
+        var tlTask=window._pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp,textDivs:textDivs});
         var tlDone=tlTask&&tlTask.promise?tlTask.promise:Promise.resolve();
         tlDone.then(function(){
           _bkPages[pageNum]={tl:tl,textDivs:textDivs};bkApplyPageHighlights(b,pageNum);
