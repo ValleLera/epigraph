@@ -1629,7 +1629,13 @@ function selectBook(id){
       drop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
       var dropTxt=document.createElement('div');dropTxt.style.marginBottom='6px';dropTxt.textContent='drop PDF here';
       var pickBtn=document.createElement('button');pickBtn.className='lbtn';pickBtn.style.fontSize='11px';pickBtn.textContent='pick PDF file…';
-      function doPick(){if(window.epigraph&&window.epigraph.isElectron){window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;b.pdfPath=r.filePath;save();renderBookPdf();toast('PDF attached');});}}
+      function bkCopyAndAttach(srcPath){
+        var booksDir=((S.settings&&S.settings.pdfFolder)||'~/Documents/ResearchPDFs')+'/Books';
+        window.epigraph.pdfCopy(srcPath,booksDir).then(function(r){
+          b.pdfPath=r.ok?r.destPath:srcPath;save();renderBookPdf();toast('PDF saved to books folder');
+        }).catch(function(){b.pdfPath=srcPath;save();renderBookPdf();toast('PDF attached');});
+      }
+      function doPick(){if(window.epigraph&&window.epigraph.isElectron){window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;bkCopyAndAttach(r.filePath);});}}
       pickBtn.onclick=function(e){e.stopPropagation();doPick();};
       drop.appendChild(dropTxt);drop.appendChild(pickBtn);
       drop.onclick=function(){doPick();};
@@ -1641,7 +1647,7 @@ function selectBook(id){
         if(!file||!file.name.toLowerCase().endsWith('.pdf')){toast('please drop a PDF file');return;}
         var fp=window.epigraph?window.epigraph.getFilePath(file):null;
         if(!fp||!fp.startsWith('/')){toast('cannot read file path — click to pick instead');return;}
-        b.pdfPath=fp;save();renderBookPdf();toast('PDF attached');
+        bkCopyAndAttach(fp);
       });
       pdfSec.appendChild(drop);
     }
@@ -1874,6 +1880,14 @@ function bkSetupSelection(){
   document.addEventListener('mouseup',function(e){
     if(tip.contains(e.target))return;
     setTimeout(bkCheckSel,30);
+  });
+  document.addEventListener('keydown',function(e){
+    if((e.metaKey||e.ctrlKey)&&e.key==='f'){
+      if(document.getElementById('book-reader').classList.contains('open')){
+        e.preventDefault();
+        bkToggleSearch();
+      }
+    }
   });
 }
 
