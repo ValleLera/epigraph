@@ -1420,7 +1420,10 @@ function selectLibPaper(id){
   var btns=document.createElement('div');btns.className='mbtns';
   var closeBtn=document.createElement('button');closeBtn.className='mbtn';closeBtn.textContent=isMobile?'done':'close';
   closeBtn.onclick=function(){if(isMobile)saveLibFields();closeModal();if(isMobile)renderLibrary();};
-  var delBtn=null;
+  var delBtn=document.createElement('button');delBtn.className='mbtn';delBtn.textContent='delete';
+  delBtn.style.cssText='border-color:rgba(239,68,68,.35);color:var(--text3);margin-right:auto';
+  delBtn.onclick=function(){deleteLibPaper(id);};
+  btns.appendChild(delBtn);
   btns.appendChild(closeBtn);
   if(!isMobile){
     var bibBtn=document.createElement('button');bibBtn.className='mbtn';bibBtn.textContent='copy BibTeX';
