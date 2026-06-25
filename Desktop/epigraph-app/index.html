@@ -604,17 +604,15 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div id="bk-reader-body">
     <div id="bk-reader-pages"></div>
     <div id="bk-hl-tip" style="display:none;position:fixed;z-index:960;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.4);align-items:center;gap:8px">
-      <span id="bk-color-amber"  class="bk-color-dot sel" data-color="amber"  style="background:#f59e0b" onclick="bkSetHlColor('amber')"  title="amber"></span>
-      <span id="bk-color-green"  class="bk-color-dot"     data-color="green"  style="background:#22c55e" onclick="bkSetHlColor('green')"  title="green"></span>
-      <span id="bk-color-pink"   class="bk-color-dot"     data-color="pink"   style="background:#ec4899" onclick="bkSetHlColor('pink')"   title="pink"></span>
-      <span id="bk-color-blue"   class="bk-color-dot"     data-color="blue"   style="background:#3b82f6" onclick="bkSetHlColor('blue')"   title="blue"></span>
-      <button class="lbtn" style="font-size:11px;margin-left:4px" onclick="createHighlight()">✦ highlight</button>
+      <span id="bk-color-amber"  class="bk-color-dot sel" data-color="amber"  style="background:#f59e0b" onclick="bkSetHlColor('amber')"  title="highlight amber"></span>
+      <span id="bk-color-green"  class="bk-color-dot"     data-color="green"  style="background:#22c55e" onclick="bkSetHlColor('green')"  title="highlight green"></span>
+      <span id="bk-color-pink"   class="bk-color-dot"     data-color="pink"   style="background:#ec4899" onclick="bkSetHlColor('pink')"   title="highlight pink"></span>
+      <span id="bk-color-blue"   class="bk-color-dot"     data-color="blue"   style="background:#3b82f6" onclick="bkSetHlColor('blue')"   title="highlight blue"></span>
     </div>
     <div id="bk-divider"></div>
     <div id="bk-reader-panel">
-      <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px">
-        <span style="flex:1">notes · autosaved</span>
-        <button class="lbtn" id="bk-add-hl-btn" style="font-size:10px;display:none" onclick="createHighlight()">✦ add highlight</button>
+      <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;">
+        notes · autosaved
       </div>
       <div id="bk-notes-body" style="flex:1;display:flex;flex-direction:column;overflow-y:auto;">
         <textarea id="bk-reader-notes" placeholder="General notes…" style="min-height:120px;flex-shrink:0;border-bottom:1px solid var(--border);border-radius:0;padding:10px 12px;resize:none;"></textarea>
@@ -1792,6 +1790,8 @@ function bkSetHlColor(c){
   document.querySelectorAll('.bk-color-dot').forEach(function(d){
     d.classList.toggle('sel',d.dataset.color===c);
   });
+  // clicking a color immediately creates the highlight
+  if(_bkSelText)createHighlight();
 }
 
 function bkApplyPageHighlights(b,pageNum){
@@ -1803,11 +1803,23 @@ function bkApplyPageHighlights(b,pageNum){
   var hls=(b.highlights||[]).filter(function(h){return h.page===pageNum;});
   if(!hls.length)return;
   var spans=Array.from(tl.querySelectorAll('span'));
-  var full='';var map=[];
-  spans.forEach(function(s){var st=full.length;full+=s.textContent;map.push({s:st,e:full.length,el:s});});
+  // add a space between span texts so cross-span phrases match correctly
+  var full='',map=[];
+  spans.forEach(function(s){
+    var st=full.length,txt=s.textContent;
+    full+=txt+' ';
+    map.push({s:st,e:st+txt.length,el:s});
+  });
   hls.forEach(function(hl){
-    var idx=full.indexOf(hl.text);if(idx<0)return;
-    var end=idx+hl.text.length;
+    var needle=hl.text;
+    var idx=full.indexOf(needle);
+    // fallback: normalize whitespace in both
+    if(idx<0){
+      var nf=full.replace(/\s+/g,' '),nn=needle.replace(/\s+/g,' ');
+      idx=nf.indexOf(nn);
+    }
+    if(idx<0)return;
+    var end=idx+needle.length;
     var cls='bk-hl-'+(hl.color||'amber');
     map.forEach(function(m){if(m.e>idx&&m.s<end)m.el.classList.add(cls);});
   });
@@ -1817,15 +1829,11 @@ function bkSetupSelection(){
   if(_bkSelSetup)return;
   _bkSelSetup=true;
   var tip=document.getElementById('bk-hl-tip');
-  var panelBtn=document.getElementById('bk-add-hl-btn');
   function bkCheckSel(){
     if(!_bkCurrentId)return;
     var sel=window.getSelection();
     var txt=(sel&&sel.toString().trim())||'';
-    if(!txt){
-      tip.style.display='none';panelBtn.style.display='none';
-      _bkSelText='';_bkSelPage=null;return;
-    }
+    if(!txt){tip.style.display='none';_bkSelText='';_bkSelPage=null;return;}
     var node=sel.anchorNode;
     if(node&&node.nodeType===3)node=node.parentNode;
     var pageWrap=null;
@@ -1833,23 +1841,22 @@ function bkSetupSelection(){
       if(node.classList&&node.classList.contains('bk-page-wrap')){pageWrap=node;break;}
       node=node.parentNode;
     }
-    if(!pageWrap){tip.style.display='none';panelBtn.style.display='none';return;}
+    if(!pageWrap){tip.style.display='none';return;}
     _bkSelText=txt;
     _bkSelPage=parseInt(pageWrap.dataset.page)||1;
     try{
       var r=sel.getRangeAt(0).getBoundingClientRect();
       if(r.width>0||r.height>0){
         tip.style.visibility='hidden';tip.style.display='flex';
-        var tw=tip.offsetWidth||160;
+        var tw=tip.offsetWidth||120;
         tip.style.left=Math.max(4,Math.min(window.innerWidth-tw-4,r.left+r.width/2-tw/2))+'px';
-        tip.style.top=Math.max(4,r.top-48)+'px';
+        tip.style.top=Math.max(4,r.top-46)+'px';
         tip.style.visibility='visible';
       }
     }catch(e){}
-    panelBtn.style.display='';
   }
   document.addEventListener('mouseup',function(e){
-    if(tip.contains(e.target)||panelBtn.contains(e.target))return;
+    if(tip.contains(e.target))return;
     setTimeout(bkCheckSel,30);
   });
 }
@@ -1882,14 +1889,25 @@ function createHighlight(){
   var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
   if(!b)return;
   if(!b.highlights)b.highlights=[];
-  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:_bkHlColor||'amber'};
+  var color=_bkHlColor||'amber';
+  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:color};
   b.highlights.push(hl);
   save();
+  // immediately mark the selected spans via the live selection range (most reliable)
+  var cls='bk-hl-'+color;
+  var pdata=_bkPages[_bkSelPage];
+  var sel=window.getSelection();
+  if(pdata&&sel&&sel.rangeCount>0){
+    var range=sel.getRangeAt(0);
+    pdata.tl.querySelectorAll('span').forEach(function(span){
+      try{if(range.intersectsNode(span))span.classList.add(cls);}catch(e){}
+    });
+  }
+  // also run text-match approach so highlights re-apply after zoom/re-render
   bkApplyPageHighlights(b,_bkSelPage);
   bkRenderNotes(b);
   window.getSelection().removeAllRanges();
   document.getElementById('bk-hl-tip').style.display='none';
-  document.getElementById('bk-add-hl-btn').style.display='none';
   _bkSelText='';_bkSelPage=null;
 }
 
