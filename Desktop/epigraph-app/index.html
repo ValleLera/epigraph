@@ -378,6 +378,8 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 #bk-reader-body{flex:1;display:flex;overflow:hidden;}
 #bk-reader-pages{flex:1;overflow:auto;padding:16px 20px;background:#5a5a5a;display:flex;flex-direction:column;align-items:center;gap:12px;}
 #bk-reader-panel{width:360px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);}
+#bk-divider{width:5px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;}
+#bk-divider:hover{background:var(--border2);}
 #bk-reader-notes{background:var(--bg);border:none;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;resize:none;line-height:1.7;width:100%;box-sizing:border-box;}
 .bk-page-wrap{position:relative;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);flex-shrink:0;}
 .bk-page-wrap canvas{display:block;pointer-events:none;}
@@ -385,9 +387,13 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 .bk-text-layer span,.bk-text-layer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;user-select:text;}
 .bk-text-layer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;user-select:none;}
 .bk-text-layer .markedContent{top:0;height:0;}
-.bk-text-layer span.bk-hl{background:rgba(251,191,36,0.45);border-radius:1px;}
-.bk-text-layer ::selection{background:rgba(251,191,36,0.35);}
-::selection{background:rgba(0,120,255,0.3);}
+.bk-text-layer span.bk-hl-amber{background:rgba(251,191,36,0.45);border-radius:1px;}
+.bk-text-layer span.bk-hl-green{background:rgba(34,197,94,0.4);border-radius:1px;}
+.bk-text-layer span.bk-hl-pink{background:rgba(236,72,153,0.35);border-radius:1px;}
+.bk-text-layer span.bk-hl-blue{background:rgba(59,130,246,0.4);border-radius:1px;}
+.bk-text-layer ::selection{background:rgba(100,160,255,0.35);}
+.bk-color-dot{width:14px;height:14px;border-radius:50%;display:inline-block;cursor:pointer;border:2px solid transparent;transition:border-color .1s;}
+.bk-color-dot.sel{border-color:#fff;}
 .bk-hl-card{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:4px;padding:7px 9px;font-size:11px;}
 .bk-hl-card .bk-hl-pg{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:3px;cursor:pointer;}
 .bk-hl-card .bk-hl-pg:hover{color:var(--amber);}
@@ -589,14 +595,22 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 <div id="book-reader">
   <div id="bk-reader-bar">
     <span id="bk-reader-title" style="font-family:var(--mono);font-size:12px;color:var(--amber);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-    <span id="bk-reader-page-info" style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-right:8px"></span>
-    <button class="lbtn" style="font-size:11px" onclick="closeBookReader()">✕ close</button>
+    <span id="bk-reader-page-info" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span>
+    <button class="lbtn" style="font-size:14px;padding:1px 6px;line-height:1.4" onclick="bkZoom(-1)" title="zoom out">−</button>
+    <span id="bk-zoom-pct" style="font-family:var(--mono);font-size:10px;color:var(--text3);min-width:32px;text-align:center">100%</span>
+    <button class="lbtn" style="font-size:14px;padding:1px 6px;line-height:1.4" onclick="bkZoom(1)" title="zoom in">+</button>
+    <button class="lbtn" style="font-size:11px;margin-left:8px" onclick="closeBookReader()">✕ close</button>
   </div>
   <div id="bk-reader-body">
     <div id="bk-reader-pages"></div>
-    <div id="bk-hl-tip" style="display:none;position:fixed;z-index:960;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;box-shadow:0 2px 10px rgba(0,0,0,.4)">
-      <button class="lbtn" style="font-size:11px" onclick="createHighlight()">✦ highlight</button>
+    <div id="bk-hl-tip" style="display:none;position:fixed;z-index:960;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.4);align-items:center;gap:8px">
+      <span id="bk-color-amber"  class="bk-color-dot sel" data-color="amber"  style="background:#f59e0b" onclick="bkSetHlColor('amber')"  title="amber"></span>
+      <span id="bk-color-green"  class="bk-color-dot"     data-color="green"  style="background:#22c55e" onclick="bkSetHlColor('green')"  title="green"></span>
+      <span id="bk-color-pink"   class="bk-color-dot"     data-color="pink"   style="background:#ec4899" onclick="bkSetHlColor('pink')"   title="pink"></span>
+      <span id="bk-color-blue"   class="bk-color-dot"     data-color="blue"   style="background:#3b82f6" onclick="bkSetHlColor('blue')"   title="blue"></span>
+      <button class="lbtn" style="font-size:11px;margin-left:4px" onclick="createHighlight()">✦ highlight</button>
     </div>
+    <div id="bk-divider"></div>
     <div id="bk-reader-panel">
       <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px">
         <span style="flex:1">notes · autosaved</span>
@@ -1670,20 +1684,26 @@ function deleteBook(id){
   save();closeModal();renderBooks();toast('book deleted');
 }
 
-var _bkCurrentId=null,_bkPdfDoc=null,_bkPages={},_bkSelPage=null,_bkSelText='',_bkScale=1.5,_bkSelSetup=false;
+var _bkCurrentId=null,_bkPdfDoc=null,_bkPages={},_bkSelPage=null,_bkSelText='',
+    _bkScale=1.5,_bkSelSetup=false,_bkZoom=1,_bkHlColor='amber',
+    _bkObserver=null,_bkNativeW=612,_bkNativeH=792,
+    _bkResizing=false,_bkResizeStartX=0,_bkResizeStartW=360;
+var _bkHlColors={amber:'#f59e0b',green:'#22c55e',pink:'#ec4899',blue:'#3b82f6'};
 
 function openBookReader(id){
   var b=(S.books||[]).find(function(x){return x.id===id;});
   if(!b){toast('book not found');return;}
   if(!b.pdfPath){toast('no PDF attached — open the book and add one first');return;}
-  _bkCurrentId=id;_bkPdfDoc=null;_bkPages={};
+  _bkCurrentId=id;_bkPdfDoc=null;_bkPages={};_bkZoom=1;
   if(!b.highlights)b.highlights=[];
   document.getElementById('bk-reader-title').textContent=b.title;
+  document.getElementById('bk-zoom-pct').textContent='100%';
   var container=document.getElementById('bk-reader-pages');
   container.innerHTML='<div style="color:#ccc;font-family:var(--mono);font-size:12px;padding:40px">loading PDF…</div>';
   bkRenderNotes(b);
   document.getElementById('book-reader').classList.add('open');
   bkSetupSelection();
+  bkSetupResize();
   if(!window._pdfjsLib){toast('PDF viewer not ready — try again in a moment');return;}
   window.epigraph.readFileBytes(b.pdfPath).then(function(r){
     if(!r.ok){toast('cannot read PDF: '+(r.error||'unknown'));return;}
@@ -1691,29 +1711,56 @@ function openBookReader(id){
     window._pdfjsLib.getDocument({data:data}).promise.then(function(pdf){
       _bkPdfDoc=pdf;
       document.getElementById('bk-reader-page-info').textContent=pdf.numPages+' pages';
-      // compute fit-width scale from page 1
       pdf.getPage(1).then(function(p1){
         var nv=p1.getViewport({scale:1});
+        _bkNativeW=nv.width;_bkNativeH=nv.height;
         var avail=container.clientWidth-48;
         _bkScale=Math.max(0.5,Math.min(3,avail/nv.width));
-        container.innerHTML='';
-        for(var i=1;i<=pdf.numPages;i++)bkRenderPage(pdf,i,container,b);
+        bkBuildPages(pdf,b,container);
       });
     }).catch(function(e){toast('PDF error: '+e.message);});
   });
 }
 
-function bkRenderPage(pdf,pageNum,container,b){
-  var wrap=document.createElement('div');wrap.className='bk-page-wrap';wrap.dataset.page=pageNum;
-  container.appendChild(wrap);
+function bkBuildPages(pdf,b,container){
+  if(_bkObserver){_bkObserver.disconnect();_bkObserver=null;}
+  _bkPages={};
+  container.innerHTML='';
+  var effScale=_bkScale*_bkZoom;
+  var pw=Math.floor(_bkNativeW*effScale);
+  var ph=Math.floor(_bkNativeH*effScale);
+  _bkObserver=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting&&!e.target.dataset.rendered){
+        e.target.dataset.rendered='1';
+        var pn=parseInt(e.target.dataset.page);
+        var bk=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
+        if(bk)_bkRenderPageInWrap(pdf,pn,e.target,bk,effScale);
+      }
+    });
+  },{root:container,rootMargin:'500px 0px'});
+  for(var i=1;i<=pdf.numPages;i++){
+    var wrap=document.createElement('div');
+    wrap.className='bk-page-wrap';
+    wrap.dataset.page=i;
+    wrap.style.width=pw+'px';
+    wrap.style.height=ph+'px';
+    container.appendChild(wrap);
+    _bkObserver.observe(wrap);
+  }
+}
+
+function _bkRenderPageInWrap(pdf,pageNum,wrap,b,scale){
   pdf.getPage(pageNum).then(function(page){
-    var scale=_bkScale,dpr=window.devicePixelRatio||1;
+    var dpr=window.devicePixelRatio||1;
     var vp=page.getViewport({scale:scale});
     wrap.style.width=vp.width+'px';
+    wrap.style.height=vp.height+'px';
+    wrap.innerHTML='';
     var canvas=document.createElement('canvas');
     canvas.width=Math.floor(vp.width*dpr);
     canvas.height=Math.floor(vp.height*dpr);
-    canvas.style.cssText='display:block;width:'+vp.width+'px;height:'+vp.height+'px;';
+    canvas.style.cssText='display:block;width:'+vp.width+'px;height:'+vp.height+'px;pointer-events:none;';
     var tl=document.createElement('div');tl.className='bk-text-layer';
     tl.style.cssText='height:'+vp.height+'px;width:'+vp.width+'px;';
     tl.style.setProperty('--scale-factor',scale);
@@ -1731,10 +1778,28 @@ function bkRenderPage(pdf,pageNum,container,b){
   });
 }
 
+function bkZoom(dir){
+  if(!_bkPdfDoc)return;
+  var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
+  if(!b)return;
+  _bkZoom=Math.round(Math.max(0.4,Math.min(4,_bkZoom*(dir>0?1.25:0.8)))*100)/100;
+  document.getElementById('bk-zoom-pct').textContent=Math.round(_bkZoom*100)+'%';
+  bkBuildPages(_bkPdfDoc,b,document.getElementById('bk-reader-pages'));
+}
+
+function bkSetHlColor(c){
+  _bkHlColor=c;
+  document.querySelectorAll('.bk-color-dot').forEach(function(d){
+    d.classList.toggle('sel',d.dataset.color===c);
+  });
+}
+
 function bkApplyPageHighlights(b,pageNum){
   var pdata=_bkPages[pageNum];if(!pdata)return;
   var tl=pdata.tl;
-  tl.querySelectorAll('span').forEach(function(s){s.classList.remove('bk-hl');});
+  tl.querySelectorAll('span').forEach(function(s){
+    s.classList.remove('bk-hl-amber','bk-hl-green','bk-hl-pink','bk-hl-blue');
+  });
   var hls=(b.highlights||[]).filter(function(h){return h.page===pageNum;});
   if(!hls.length)return;
   var spans=Array.from(tl.querySelectorAll('span'));
@@ -1743,7 +1808,8 @@ function bkApplyPageHighlights(b,pageNum){
   hls.forEach(function(hl){
     var idx=full.indexOf(hl.text);if(idx<0)return;
     var end=idx+hl.text.length;
-    map.forEach(function(m){if(m.e>idx&&m.s<end)m.el.classList.add('bk-hl');});
+    var cls='bk-hl-'+(hl.color||'amber');
+    map.forEach(function(m){if(m.e>idx&&m.s<end)m.el.classList.add(cls);});
   });
 }
 
@@ -1753,16 +1819,13 @@ function bkSetupSelection(){
   var tip=document.getElementById('bk-hl-tip');
   var panelBtn=document.getElementById('bk-add-hl-btn');
   function bkCheckSel(){
-    if(!_bkCurrentId){return;}
+    if(!_bkCurrentId)return;
     var sel=window.getSelection();
     var txt=(sel&&sel.toString().trim())||'';
     if(!txt){
-      tip.style.display='none';
-      panelBtn.style.display='none';
-      _bkSelText='';_bkSelPage=null;
-      return;
+      tip.style.display='none';panelBtn.style.display='none';
+      _bkSelText='';_bkSelPage=null;return;
     }
-    // find page: walk from anchor node up to .bk-page-wrap
     var node=sel.anchorNode;
     if(node&&node.nodeType===3)node=node.parentNode;
     var pageWrap=null;
@@ -1773,24 +1836,44 @@ function bkSetupSelection(){
     if(!pageWrap){tip.style.display='none';panelBtn.style.display='none';return;}
     _bkSelText=txt;
     _bkSelPage=parseInt(pageWrap.dataset.page)||1;
-    // show floating tooltip
     try{
       var r=sel.getRangeAt(0).getBoundingClientRect();
       if(r.width>0||r.height>0){
-        tip.style.visibility='hidden';tip.style.display='block';
-        var tw=tip.offsetWidth||100;
+        tip.style.visibility='hidden';tip.style.display='flex';
+        var tw=tip.offsetWidth||160;
         tip.style.left=Math.max(4,Math.min(window.innerWidth-tw-4,r.left+r.width/2-tw/2))+'px';
-        tip.style.top=Math.max(4,r.top-44)+'px';
+        tip.style.top=Math.max(4,r.top-48)+'px';
         tip.style.visibility='visible';
       }
     }catch(e){}
-    // always show panel button
     panelBtn.style.display='';
   }
   document.addEventListener('mouseup',function(e){
-    // if clicking the highlight button itself, don't re-check (would wipe _bkSelText)
     if(tip.contains(e.target)||panelBtn.contains(e.target))return;
     setTimeout(bkCheckSel,30);
+  });
+}
+
+function bkSetupResize(){
+  var handle=document.getElementById('bk-divider');
+  if(!handle||handle.dataset.setup)return;
+  handle.dataset.setup='1';
+  handle.addEventListener('mousedown',function(e){
+    _bkResizing=true;
+    _bkResizeStartX=e.clientX;
+    _bkResizeStartW=document.getElementById('bk-reader-panel').offsetWidth;
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!_bkResizing)return;
+    var delta=_bkResizeStartX-e.clientX;
+    var nw=Math.max(180,Math.min(800,_bkResizeStartW+delta));
+    document.getElementById('bk-reader-panel').style.width=nw+'px';
+  });
+  document.addEventListener('mouseup',function(){
+    if(_bkResizing){_bkResizing=false;document.body.style.cursor='';document.body.style.userSelect='';}
   });
 }
 
@@ -1799,7 +1882,7 @@ function createHighlight(){
   var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
   if(!b)return;
   if(!b.highlights)b.highlights=[];
-  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:'amber'};
+  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:_bkHlColor||'amber'};
   b.highlights.push(hl);
   save();
   bkApplyPageHighlights(b,_bkSelPage);
@@ -1823,6 +1906,7 @@ function bkRenderNotes(b){
   var sorted=b.highlights.slice().sort(function(a,c){return a.page-c.page;});
   sorted.forEach(function(hl){
     var card=document.createElement('div');card.className='bk-hl-card';
+    card.style.borderLeftColor=_bkHlColors[hl.color||'amber']||_bkHlColors.amber;
     var pg=document.createElement('div');pg.className='bk-hl-pg';pg.textContent='p. '+hl.page;
     pg.onclick=function(){bkScrollToPage(hl.page);};
     var del=document.createElement('button');del.className='bk-hl-del';del.textContent='✕';del.title='delete highlight';
@@ -1832,7 +1916,7 @@ function bkRenderNotes(b){
       if(_bkPages[hl.page])bkApplyPageHighlights(b,hl.page);
     };
     var quote=document.createElement('div');quote.className='bk-hl-quote';
-    quote.textContent='"'+(hl.text.length>120?hl.text.slice(0,120)+'…':hl.text)+'"';
+    quote.textContent='“'+(hl.text.length>120?hl.text.slice(0,120)+'…':hl.text)+'”';
     var nta=document.createElement('textarea');nta.rows=2;nta.placeholder='note on this passage…';nta.value=hl.note||'';
     nta.oninput=function(){hl.note=nta.value;save();};
     card.appendChild(del);card.appendChild(pg);card.appendChild(quote);card.appendChild(nta);
@@ -1846,6 +1930,7 @@ function bkScrollToPage(pageNum){
 }
 
 function closeBookReader(){
+  if(_bkObserver){_bkObserver.disconnect();_bkObserver=null;}
   document.getElementById('book-reader').classList.remove('open');
   document.getElementById('bk-hl-tip').style.display='none';
   _bkCurrentId=null;_bkPdfDoc=null;_bkPages={};
