@@ -1527,6 +1527,55 @@ function selectBook(id){
   var pubEl=document.createElement('input');pubEl.type='text';pubEl.value=b.publisher||'';mkField('publisher',pubEl);
   var isbnEl=document.createElement('input');isbnEl.type='text';isbnEl.value=b.isbn||'';isbnEl.style.width='160px';mkField('ISBN',isbnEl);
 
+  // PDF section
+  var pdfSec=document.createElement('div');pdfSec.style.marginBottom='10px';
+  function renderBookPdf(){
+    pdfSec.innerHTML='';
+    if(b.pdfPath){
+      var hdr=document.createElement('div');
+      hdr.style.cssText='display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg3);border-radius:4px 4px 0 0;border:1px solid var(--border)';
+      var nm=document.createElement('span');nm.style.cssText='flex:1;font-size:11px;color:var(--text2);font-family:var(--mono)';nm.textContent=b.pdfPath.split('/').pop();
+      var detachBtn=document.createElement('button');
+      detachBtn.style.cssText='background:none;border:1px solid rgba(239,68,68,.25);border-radius:3px;color:var(--text3);cursor:pointer;font-size:10px;padding:2px 7px';
+      detachBtn.textContent='detach';
+      detachBtn.onclick=function(){if(!confirm('Detach PDF?'))return;b.pdfPath=null;save();renderBookPdf();};
+      hdr.appendChild(nm);
+      if(window.epigraph&&window.epigraph.isElectron){
+        var openBtn=document.createElement('button');openBtn.className='lbtn';openBtn.style.cssText='font-size:10px';openBtn.textContent='open in Preview';
+        openBtn.onclick=function(){window.epigraph.openPath(b.pdfPath,'finder');};
+        hdr.appendChild(openBtn);
+      }
+      hdr.appendChild(detachBtn);
+      pdfSec.appendChild(hdr);
+      var bar=document.createElement('div');
+      bar.style.cssText='border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px;text-align:center;background:var(--bg3);font-size:11px;color:var(--text3);font-family:var(--mono)';
+      bar.textContent=b.pdfPath.split('/').pop();
+      pdfSec.appendChild(bar);
+    } else {
+      var drop=document.createElement('div');
+      drop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
+      drop.textContent='drop PDF here or click to attach';
+      drop.onclick=function(){
+        if(window.epigraph&&window.epigraph.isElectron){
+          window.epigraph.pickPdf().then(function(r){if(!r.ok||r.cancelled)return;b.pdfPath=r.filePath;save();renderBookPdf();toast('PDF attached');});
+        }
+      };
+      drop.addEventListener('dragover',function(e){e.preventDefault();drop.style.borderColor='var(--amber)';});
+      drop.addEventListener('dragleave',function(){drop.style.borderColor='var(--border2)';});
+      drop.addEventListener('drop',function(e){
+        e.preventDefault();drop.style.borderColor='var(--border2)';
+        var file=e.dataTransfer.files[0];
+        if(!file||!file.name.toLowerCase().endsWith('.pdf')){toast('please drop a PDF file');return;}
+        var fp=window.epigraph?window.epigraph.getFilePath(file):null;
+        if(!fp||!fp.startsWith('/')){toast('cannot read file path — click to pick instead');return;}
+        b.pdfPath=fp;save();renderBookPdf();toast('PDF attached');
+      });
+      pdfSec.appendChild(drop);
+    }
+  }
+  renderBookPdf();
+  wrap.appendChild(pdfSec);
+
   var notesLb=document.createElement('div');notesLb.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:3px';notesLb.textContent='notes';wrap.appendChild(notesLb);
   var notesEl=document.createElement('textarea');
   notesEl.style.cssText='width:100%;min-height:220px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;resize:vertical;box-sizing:border-box;line-height:1.6';
