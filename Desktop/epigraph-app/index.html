@@ -1709,10 +1709,13 @@ function bkRenderPage(pdf,pageNum,container,b){
     page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise.then(function(){
       page.getTextContent().then(function(tc){
         var textDivs=[];
-        window._pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp,textDivs:textDivs}).promise.then(function(){
-          _bkPages[pageNum]={tl:tl,textDivs:textDivs};
-          bkApplyPageHighlights(b,pageNum);
-        }).catch(function(){});
+        var tlTask=window._pdfjsLib.renderTextLayer({textContent:tc,container:tl,viewport:vp,textDivs:textDivs});
+        var tlDone=tlTask&&tlTask.promise?tlTask.promise:Promise.resolve();
+        tlDone.then(function(){
+          _bkPages[pageNum]={tl:tl,textDivs:textDivs};bkApplyPageHighlights(b,pageNum);
+        }).catch(function(){
+          _bkPages[pageNum]={tl:tl,textDivs:textDivs};bkApplyPageHighlights(b,pageNum);
+        });
       });
     });
   });
@@ -4354,10 +4357,12 @@ function copyBibtexById(id){
 }
 
 </script>
-<script type="module">
-import * as pdfjsLib from './pdfjs-lib.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdfjs-worker.mjs', import.meta.url).href;
-window._pdfjsLib = pdfjsLib;
+<script src="pdfjs-lib.js"></script>
+<script>
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='pdfjs-worker.js';
+  window._pdfjsLib=pdfjsLib;
+}
 </script>
 </body>
 </html>
