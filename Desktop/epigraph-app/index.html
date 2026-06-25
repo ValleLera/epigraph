@@ -371,6 +371,14 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 .modal input,.modal textarea,.modal select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:7px 9px;color:var(--text);font-size:0.92rem;font-family:var(--sans);outline:none;transition:border-color .15s;}
 .modal input:focus,.modal textarea:focus,.modal select:focus{border-color:var(--border2);}
 .modal textarea{resize:vertical;min-height:65px;line-height:1.6;}
+/* BOOK READER */
+#book-reader{position:fixed;inset:0;z-index:950;background:var(--bg);display:none;flex-direction:column;}
+#book-reader.open{display:flex;}
+#bk-reader-bar{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2);}
+#bk-reader-body{flex:1;display:flex;overflow:hidden;}
+#bk-reader-pdf{flex:1;border:none;min-width:0;background:#fff;}
+#bk-reader-panel{width:360px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);}
+#bk-reader-notes{flex:1;background:var(--bg);border:none;padding:14px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;resize:none;line-height:1.7;}
 .modal select{cursor:pointer;}
 .mbtns{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
 .mbtn{padding:7px 16px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:0.85rem;cursor:pointer;font-family:var(--mono);transition:all .15s;}
@@ -562,6 +570,19 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div class="cx" onclick="cx_claude()">◆ ask Claude ↗</div>
   <div class="cxsep"></div>
   <div class="cx danger" onclick="cx_del()">✕ delete</div>
+</div>
+<div id="book-reader">
+  <div id="bk-reader-bar">
+    <span id="bk-reader-title" style="font-family:var(--mono);font-size:12px;color:var(--amber);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <button class="lbtn" style="font-size:11px" onclick="closeBookReader()">✕ close reader</button>
+  </div>
+  <div id="bk-reader-body">
+    <iframe id="bk-reader-pdf"></iframe>
+    <div id="bk-reader-panel">
+      <div style="padding:8px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0">notes · autosaved</div>
+      <textarea id="bk-reader-notes" placeholder="Reading notes, quotes, chapter summaries…"></textarea>
+    </div>
+  </div>
 </div>
 <div id="overlay"><div class="modal" id="mbox"></div></div>
 <div id="toast"></div>
@@ -1495,10 +1516,17 @@ function renderBooks(){
       row.onmouseenter=function(){row.style.borderColor='var(--amber)';};
       row.onmouseleave=function(){row.style.borderColor='var(--border)';};
       var noteSnippet=b.notes?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.notes.slice(0,80))+'</div>':'';
-      row.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--text)">'+esc(b.title)+'</div>'
+      row.innerHTML='<div style="display:flex;align-items:center;gap:6px">'
+        +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--text)">'+esc(b.title)+'</div>'
         +'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+esc(b.author||'')+(b.year?' · '+esc(b.year):'')+'</div>'
-        +noteSnippet;
+        +noteSnippet+'</div>'
+        +(b.pdfPath?'<button class="lbtn bk-read-btn" style="font-size:10px;flex-shrink:0">read</button>':'')
+        +'</div>';
       row.onclick=function(){selectBook(b.id);};
+      if(b.pdfPath){
+        var readBtn=row.querySelector('.bk-read-btn');
+        if(readBtn)readBtn.onclick=function(e){e.stopPropagation();openBookReader(b.id);};
+      }
       list.appendChild(row);
     });
     body.appendChild(list);
@@ -1540,17 +1568,11 @@ function selectBook(id){
       detachBtn.textContent='detach';
       detachBtn.onclick=function(){if(!confirm('Detach PDF?'))return;b.pdfPath=null;save();renderBookPdf();};
       hdr.appendChild(nm);
-      if(window.epigraph&&window.epigraph.isElectron){
-        var openBtn=document.createElement('button');openBtn.className='lbtn';openBtn.style.cssText='font-size:10px';openBtn.textContent='open in Preview';
-        openBtn.onclick=function(){window.epigraph.openPath(b.pdfPath,'finder');};
-        hdr.appendChild(openBtn);
-      }
+      var readerBtn=document.createElement('button');readerBtn.className='lbtn';readerBtn.style.cssText='font-size:10px';readerBtn.textContent='open reader';
+      readerBtn.onclick=function(){closeModal();openBookReader(id);};
+      hdr.appendChild(readerBtn);
       hdr.appendChild(detachBtn);
       pdfSec.appendChild(hdr);
-      var bar=document.createElement('div');
-      bar.style.cssText='border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px;text-align:center;background:var(--bg3);font-size:11px;color:var(--text3);font-family:var(--mono)';
-      bar.textContent=b.pdfPath.split('/').pop();
-      pdfSec.appendChild(bar);
     } else {
       var drop=document.createElement('div');
       drop.style.cssText='border:2px dashed var(--border2);border-radius:5px;padding:14px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer;transition:border-color .15s';
@@ -1621,6 +1643,33 @@ function deleteBook(id){
   if(!confirm('Delete this book and all its notes?'))return;
   S.books=(S.books||[]).filter(function(x){return x.id!==id;});
   save();closeModal();renderBooks();toast('book deleted');
+}
+
+var _bkBlobUrl=null;
+function openBookReader(id){
+  var b=(S.books||[]).find(function(x){return x.id===id;});
+  if(!b){toast('book not found');return;}
+  if(!b.pdfPath){toast('no PDF attached — open the book and add one first');return;}
+  document.getElementById('bk-reader-title').textContent=b.title;
+  var ta=document.getElementById('bk-reader-notes');
+  ta.value=b.notes||'';
+  ta.oninput=function(){b.notes=ta.value;save();};
+  if(window.epigraph&&window.epigraph.readFileBytes){
+    window.epigraph.readFileBytes(b.pdfPath).then(function(r){
+      if(!r.ok){toast('cannot read PDF: '+(r.error||'unknown'));return;}
+      if(_bkBlobUrl)URL.revokeObjectURL(_bkBlobUrl);
+      var blob=new Blob([r.buffer],{type:'application/pdf'});
+      _bkBlobUrl=URL.createObjectURL(blob);
+      document.getElementById('bk-reader-pdf').src=_bkBlobUrl;
+    });
+  }
+  document.getElementById('book-reader').classList.add('open');
+  setTimeout(function(){ta.focus();},200);
+}
+function closeBookReader(){
+  document.getElementById('book-reader').classList.remove('open');
+  document.getElementById('bk-reader-pdf').src='about:blank';
+  if(_bkBlobUrl){URL.revokeObjectURL(_bkBlobUrl);_bkBlobUrl=null;}
 }
 
 // ── PROJECTS ──
