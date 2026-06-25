@@ -1788,17 +1788,9 @@ function bkSetupSelection(){
     panelBtn.style.display='';
   }
   document.addEventListener('mouseup',function(e){
+    // if clicking the highlight button itself, don't re-check (would wipe _bkSelText)
     if(tip.contains(e.target)||panelBtn.contains(e.target))return;
     setTimeout(bkCheckSel,30);
-  });
-  document.addEventListener('selectionchange',function(){
-    if(!_bkCurrentId)return;
-    var sel=window.getSelection();
-    if(!sel||!sel.toString().trim()){
-      tip.style.display='none';
-      panelBtn.style.display='none';
-      _bkSelText='';_bkSelPage=null;
-    }
   });
 }
 
