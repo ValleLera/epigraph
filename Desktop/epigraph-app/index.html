@@ -381,9 +381,10 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 #bk-reader-notes{background:var(--bg);border:none;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;resize:none;line-height:1.7;width:100%;box-sizing:border-box;}
 .bk-page-wrap{position:relative;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);flex-shrink:0;}
 .bk-page-wrap canvas{display:block;}
-.bk-text-layer{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;user-select:text;cursor:text;line-height:1;}
-.bk-text-layer span{position:absolute;white-space:pre;transform-origin:0% 0%;color:transparent;cursor:text;}
+.bk-text-layer{position:absolute;top:0;left:0;overflow:hidden;opacity:1;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:2;user-select:text;cursor:text;}
+.bk-text-layer span,.bk-text-layer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;}
 .bk-text-layer span.bk-hl{background:rgba(251,191,36,0.45);border-radius:1px;}
+::selection{background:rgba(0,120,255,0.3);}
 .bk-hl-card{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:4px;padding:7px 9px;font-size:11px;}
 .bk-hl-card .bk-hl-pg{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:3px;cursor:pointer;}
 .bk-hl-card .bk-hl-pg:hover{color:var(--amber);}
@@ -596,6 +597,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     <div id="bk-reader-panel">
       <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px">
         <span style="flex:1">notes · autosaved</span>
+        <button class="lbtn" id="bk-add-hl-btn" style="font-size:10px;display:none" onclick="createHighlight()">✦ add highlight</button>
       </div>
       <div id="bk-notes-body" style="flex:1;display:flex;flex-direction:column;overflow-y:auto;">
         <textarea id="bk-reader-notes" placeholder="General notes…" style="min-height:120px;flex-shrink:0;border-bottom:1px solid var(--border);border-radius:0;padding:10px 12px;resize:none;"></textarea>
@@ -1746,27 +1748,54 @@ function bkSetupSelection(){
   if(_bkSelSetup)return;
   _bkSelSetup=true;
   var tip=document.getElementById('bk-hl-tip');
-  document.getElementById('bk-reader-body').addEventListener('mouseup',function(e){
-    if(tip.contains(e.target))return;
-    setTimeout(function(){
-      var sel=window.getSelection();
-      var txt=(sel&&sel.toString().trim())||'';
-      if(!txt){tip.style.display='none';_bkSelText='';return;}
-      var el=sel.anchorNode;
-      if(el&&el.nodeType===3)el=el.parentElement;
-      var wrap=el&&el.closest?el.closest('[data-page]'):null;
-      if(!wrap){tip.style.display='none';return;}
-      _bkSelText=txt;_bkSelPage=parseInt(wrap.dataset.page);
+  var panelBtn=document.getElementById('bk-add-hl-btn');
+  function bkCheckSel(){
+    if(!_bkCurrentId){return;}
+    var sel=window.getSelection();
+    var txt=(sel&&sel.toString().trim())||'';
+    if(!txt){
+      tip.style.display='none';
+      panelBtn.style.display='none';
+      _bkSelText='';_bkSelPage=null;
+      return;
+    }
+    // find page: walk from anchor node up to .bk-page-wrap
+    var node=sel.anchorNode;
+    if(node&&node.nodeType===3)node=node.parentNode;
+    var pageWrap=null;
+    while(node&&node!==document.body){
+      if(node.classList&&node.classList.contains('bk-page-wrap')){pageWrap=node;break;}
+      node=node.parentNode;
+    }
+    if(!pageWrap){tip.style.display='none';panelBtn.style.display='none';return;}
+    _bkSelText=txt;
+    _bkSelPage=parseInt(pageWrap.dataset.page)||1;
+    // show floating tooltip
+    try{
       var r=sel.getRangeAt(0).getBoundingClientRect();
-      tip.style.visibility='hidden';tip.style.display='block';
-      var tw=tip.offsetWidth||90;
-      tip.style.left=Math.max(4,Math.min(window.innerWidth-tw-4,r.left+r.width/2-tw/2))+'px';
-      tip.style.top=Math.max(4,r.top-44)+'px';
-      tip.style.visibility='visible';
-    },20);
+      if(r.width>0||r.height>0){
+        tip.style.visibility='hidden';tip.style.display='block';
+        var tw=tip.offsetWidth||100;
+        tip.style.left=Math.max(4,Math.min(window.innerWidth-tw-4,r.left+r.width/2-tw/2))+'px';
+        tip.style.top=Math.max(4,r.top-44)+'px';
+        tip.style.visibility='visible';
+      }
+    }catch(e){}
+    // always show panel button
+    panelBtn.style.display='';
+  }
+  document.addEventListener('mouseup',function(e){
+    if(tip.contains(e.target)||panelBtn.contains(e.target))return;
+    setTimeout(bkCheckSel,30);
   });
-  document.addEventListener('mousedown',function(e){
-    if(!tip.contains(e.target)){tip.style.display='none';}
+  document.addEventListener('selectionchange',function(){
+    if(!_bkCurrentId)return;
+    var sel=window.getSelection();
+    if(!sel||!sel.toString().trim()){
+      tip.style.display='none';
+      panelBtn.style.display='none';
+      _bkSelText='';_bkSelPage=null;
+    }
   });
 }
 
@@ -1782,6 +1811,7 @@ function createHighlight(){
   bkRenderNotes(b);
   window.getSelection().removeAllRanges();
   document.getElementById('bk-hl-tip').style.display='none';
+  document.getElementById('bk-add-hl-btn').style.display='none';
   _bkSelText='';_bkSelPage=null;
 }
 
