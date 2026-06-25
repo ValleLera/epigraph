@@ -35,7 +35,12 @@
       "main.js",
       "preload.js",
       "package.json",
-      "icons/**"
+      "icons/**",
+      "pdfjs-lib.mjs",
+      "pdfjs-worker.mjs"
     ]
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.0.227"
   }
 }
