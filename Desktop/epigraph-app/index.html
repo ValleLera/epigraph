@@ -539,6 +539,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   <div class="rtabs">
     <div class="rtab on" id="rt-claim" onclick="rtab('claim')">claim</div>
     <div class="rtab" id="rt-library" onclick="rtab('library')">library</div>
+    <div class="rtab" id="rt-books" onclick="rtab('books')">books</div>
     <div class="rtab" id="rt-projects" onclick="rtab('projects')">projects</div>
     <div class="rtab" id="rt-today" onclick="rtab('today')">today</div>
     <div class="rtab" id="rt-notes" onclick="rtab('notes')">notes</div>
@@ -578,7 +579,7 @@ var SC = {jam:'#f97316', col:'#22c55e', yap:'#a78bfa', nuc:'#06b6d4'};
 function sCol(c){return c.conf==='yours'?'#a78bfa':SC[c.strand]||'#8899aa';}
 
 // ══ STATE ══
-var S={claims:[],library:[],projects:[],notes:[],papers:[],calendar:[],topics:[
+var S={claims:[],library:[],books:[],projects:[],notes:[],papers:[],calendar:[],topics:[
   {l:'YAP/TAZ',q:'YAP TAZ mechanotransduction epithelial',on:true},
   {l:'collective migration',q:'collective cell migration epithelial monolayer',on:true},
   {l:'jamming',q:'cell jamming unjamming epithelial tissue',on:true},
@@ -669,12 +670,12 @@ async function init(){
         if(sv)try{p=JSON.parse(sv);idbSave(p).catch(function(){});localStorage.removeItem('epigraph');}catch(e){}
       }
     }
-    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};S.calendar=p.calendar||[];}
+    if(p){S.claims=p.claims||dc(SEED);S.library=p.library||[];S.books=p.books||[];S.projects=p.projects||dc(SEED_PROJ);S.notes=p.notes||dc(SEED_NOTES);S.papers=[];S.inbox=p.inbox||p.papers||[];S.topics=p.topics||S.topics;S.settings=Object.assign({},S.settings,p.settings||{});S.streak=p.streak||1;S.lastOpen=p.lastOpen||new Date().toDateString();S.dailyNotes=p.dailyNotes||{};S.calendar=p.calendar||[];}
     else{S.claims=dc(SEED);S.projects=dc(SEED_PROJ);S.notes=dc(SEED_NOTES);}
     if(!S.settings.sync||!S.settings.sync.url){try{var sc=localStorage.getItem('epigraph_sync');if(sc)S.settings.sync=JSON.parse(sc);}catch(e){}}
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
-    if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
+    if(!S.library)S.library=[];if(!S.books)S.books=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
     applyTheme(S.settings.theme||'void');
     applyFontSize(S.settings.fontSize||13);
     var badPdf=false;
@@ -692,7 +693,7 @@ async function init(){
     if(_cloud&&_cloud.data&&(isWeb||(_cloud.updatedAt||0)>(S.lastSaved||0))){
       var cp=_cloud.data;
       var savedSync=S.settings.sync;
-      S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
+      S.claims=cp.claims||S.claims;S.library=cp.library||S.library;S.books=cp.books||S.books;
       S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
       S.inbox=cp.inbox||S.inbox;S.topics=cp.topics||S.topics;
       S.settings=Object.assign({},S.settings,cp.settings||{});
@@ -864,7 +865,7 @@ async function pullNow(statusEl){
     var cloud=await r.json();
     if(!cloud||!cloud.data){if(statusEl)statusEl.textContent='✗ no data in cloud';return;}
     var cp=cloud.data;
-    S.claims=cp.claims||S.claims;S.library=cp.library||S.library;
+    S.claims=cp.claims||S.claims;S.library=cp.library||S.library;S.books=cp.books||S.books;
     S.projects=cp.projects||S.projects;S.notes=cp.notes||S.notes;
     S.inbox=cp.inbox||S.inbox;S.topics=cp.topics||S.topics;
     S.settings=Object.assign({},S.settings,cp.settings||{});
@@ -1057,6 +1058,7 @@ function rtab(tab){rightTab=tab;document.querySelectorAll('.rtab').forEach(funct
 function renderRight(){
   if(rightTab==='claim')renderClaimDetail();
   else if(rightTab==='library')renderLibrary();
+  else if(rightTab==='books')renderBooks();
   else if(rightTab==='projects')renderProjects();
   else if(rightTab==='today')renderToday();
   else if(rightTab==='notes')renderNotes();
@@ -1468,6 +1470,108 @@ function saveAddPaper(){
   var cid=v('ap-claim');
   var p={id:'lib_'+Date.now(),title:title,authors:authors,authors_short:authors.slice(0,30),first_author:authors.split(',')[0]||'',last_author:last,last_author_short:last.slice(0,20),year:v('ap-year'),journal:v('ap-journal'),journal_short:v('ap-journal').slice(0,20),doi:v('ap-doi'),abstract:'',tags:tags,claims:cid?[cid]:[],imported:new Date().toISOString()};
   if(!S.library)S.library=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};S.library.push(p);save();closeModal();renderLibrary();updateStats();toast('paper added');
+}
+
+// ── BOOKS ──
+function renderBooks(){
+  var body=document.getElementById('rbody');
+  body.style.cssText='overflow-y:auto;padding:12px';
+  var bks=S.books||[];
+  var html='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<input id="bk-search" type="text" placeholder="search books…" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none;">'
+    +'<button class="lbtn" onclick="openAddBook()">+ add</button>'
+    +'</div>';
+  var q=(document.getElementById('bk-search')?document.getElementById('bk-search').value:'').toLowerCase();
+  var filtered=bks.filter(function(b){return!q||(b.title||'').toLowerCase().includes(q)||(b.author||'').toLowerCase().includes(q);});
+  if(!filtered.length){
+    html+='<div class="empty">no books yet<br><span style="font-size:10px;opacity:.6">click + to add one</span></div>';
+    body.innerHTML=html;
+  } else {
+    body.innerHTML=html;
+    var list=document.createElement('div');list.style.cssText='display:flex;flex-direction:column;gap:6px';
+    filtered.forEach(function(b){
+      var row=document.createElement('div');
+      row.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:9px 11px;cursor:pointer;transition:border-color .12s';
+      row.onmouseenter=function(){row.style.borderColor='var(--amber)';};
+      row.onmouseleave=function(){row.style.borderColor='var(--border)';};
+      var noteSnippet=b.notes?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.notes.slice(0,80))+'</div>':'';
+      row.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--text)">'+esc(b.title)+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+esc(b.author||'')+(b.year?' · '+esc(b.year):'')+'</div>'
+        +noteSnippet;
+      row.onclick=function(){selectBook(b.id);};
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+  }
+  var si=document.getElementById('bk-search');
+  if(si)si.oninput=function(){renderBooks();};
+}
+
+function selectBook(id){
+  var b=(S.books||[]).find(function(x){return x.id===id;});if(!b)return;
+  b.lastOpened=new Date().toISOString();save();
+  var wrap=document.createElement('div');
+
+  var h3=document.createElement('h3');h3.textContent=b.title;wrap.appendChild(h3);
+
+  var meta=document.createElement('div');
+  meta.style.cssText='font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.6';
+  meta.textContent=(b.author||'')+(b.year?' · '+b.year:'')+(b.publisher?' · '+b.publisher:'')+(b.isbn?' · ISBN: '+b.isbn:'');
+  wrap.appendChild(meta);
+
+  function mkField(label,el){var w=document.createElement('div');w.style.marginBottom='8px';var lb=document.createElement('div');lb.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:3px';lb.textContent=label;w.appendChild(lb);el.style.cssText='width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;box-sizing:border-box';w.appendChild(el);wrap.appendChild(w);}
+
+  var titleEl=document.createElement('input');titleEl.type='text';titleEl.value=b.title||'';mkField('title',titleEl);
+  var authorEl=document.createElement('input');authorEl.type='text';authorEl.value=b.author||'';mkField('author(s)',authorEl);
+  var yearEl=document.createElement('input');yearEl.type='text';yearEl.value=b.year||'';yearEl.style.width='100px';mkField('year',yearEl);
+  var pubEl=document.createElement('input');pubEl.type='text';pubEl.value=b.publisher||'';mkField('publisher',pubEl);
+  var isbnEl=document.createElement('input');isbnEl.type='text';isbnEl.value=b.isbn||'';isbnEl.style.width='160px';mkField('ISBN',isbnEl);
+
+  var notesLb=document.createElement('div');notesLb.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:3px';notesLb.textContent='notes';wrap.appendChild(notesLb);
+  var notesEl=document.createElement('textarea');
+  notesEl.style.cssText='width:100%;min-height:220px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;resize:vertical;box-sizing:border-box;line-height:1.6';
+  notesEl.value=b.notes||'';
+  notesEl.placeholder='Reading notes, quotes, chapter summaries…';
+  notesEl.oninput=function(){b.notes=notesEl.value;save();};
+  wrap.appendChild(notesEl);
+
+  function saveBookFields(){b.title=titleEl.value;b.author=authorEl.value;b.year=yearEl.value;b.publisher=pubEl.value;b.isbn=isbnEl.value;b.notes=notesEl.value;save();}
+
+  var btns=document.createElement('div');btns.className='mbtns';
+  var delBtn=document.createElement('button');delBtn.className='mbtn';delBtn.textContent='delete';
+  delBtn.style.cssText='border-color:rgba(239,68,68,.35);color:var(--text3);margin-right:auto';
+  delBtn.onclick=function(){deleteBook(id);};
+  var saveBtn=document.createElement('button');saveBtn.className='mbtn ok';saveBtn.textContent='save';
+  saveBtn.onclick=function(){saveBookFields();closeModal();renderBooks();toast('book saved');};
+  var closeBtn=document.createElement('button');closeBtn.className='mbtn';closeBtn.textContent='close';
+  closeBtn.onclick=function(){saveBookFields();closeModal();renderBooks();};
+  btns.appendChild(delBtn);btns.appendChild(closeBtn);btns.appendChild(saveBtn);
+  wrap.appendChild(btns);
+
+  var mbox=document.getElementById('mbox');mbox.innerHTML='';mbox.appendChild(wrap);
+  document.getElementById('overlay').classList.add('open');
+}
+
+function openAddBook(){
+  modal('<h3>add book</h3>'
+    +'<label>title *</label><input id="bk-title" type="text" placeholder="Book title">'
+    +'<label>author(s)</label><input id="bk-author" type="text" placeholder="Author Name">'
+    +'<label>year</label><input id="bk-year" type="text" placeholder="2024" style="width:80px">'
+    +'<label>publisher</label><input id="bk-pub" type="text" placeholder="Publisher">'
+    +'<label>ISBN</label><input id="bk-isbn" type="text" placeholder="978-...">'
+    +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button><button class="mbtn ok" onclick="saveAddBook()">add</button></div>');
+}
+
+function saveAddBook(){
+  var title=v('bk-title');if(!title){toast('title required');return;}
+  var b={id:'bk_'+Date.now(),title:title,author:v('bk-author'),year:v('bk-year'),publisher:v('bk-pub'),isbn:v('bk-isbn'),notes:'',created:new Date().toISOString()};
+  if(!S.books)S.books=[];S.books.push(b);save();closeModal();renderBooks();toast('book added');
+}
+
+function deleteBook(id){
+  if(!confirm('Delete this book and all its notes?'))return;
+  S.books=(S.books||[]).filter(function(x){return x.id!==id;});
+  save();closeModal();renderBooks();toast('book deleted');
 }
 
 // ── PROJECTS ──
