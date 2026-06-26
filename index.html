@@ -393,12 +393,18 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 .bk-search-hl{background:rgba(251,191,36,0.55)!important;border-radius:1px;}
 #bk-reader-body{flex:1;display:flex;overflow:hidden;}
 #bk-reader-pages{flex:1;overflow:auto;padding:16px 20px;background:#5a5a5a;display:flex;flex-direction:column;align-items:center;gap:12px;}
-#bk-reader-panel{width:360px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);}
-#bk-divider{width:5px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;}
-#bk-divider:hover{background:var(--border2);}
+#bk-reader-panel{width:360px;min-width:60px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);}
+#bk-divider{width:14px;cursor:col-resize;background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;touch-action:none;}
+#bk-divider::after{content:'';display:block;width:3px;height:44px;background:var(--border2);border-radius:2px;transition:background .15s;}
+#bk-divider:hover::after,#bk-divider.dragging::after{background:var(--amber);}
 #bk-reader-notes{background:var(--bg);border:none;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;resize:none;line-height:1.7;width:100%;box-sizing:border-box;}
+#bk-draw-colors{display:none;align-items:center;gap:5px;padding:0 2px;}
+#bk-draw-colors.open{display:flex;}
+.bk-draw-dot{width:14px;height:14px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0;transition:border-color .1s;}
+.bk-draw-dot.sel{border-color:var(--text);}
 .bk-page-wrap{position:relative;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);flex-shrink:0;}
 .bk-page-wrap canvas{display:block;pointer-events:none;}
+.bk-draw-canvas{position:absolute;top:0;left:0;z-index:3;touch-action:none;pointer-events:none;}
 .bk-text-layer{position:absolute;top:0;left:0;overflow:hidden;opacity:1;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:2;user-select:text;}
 .bk-text-layer span,.bk-text-layer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;user-select:text;}
 .bk-text-layer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;user-select:none;}
@@ -623,6 +629,16 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
       <button class="lbtn" style="font-size:10px" onclick="bkSearchNav(-1)" title="previous">▲</button>
       <button class="lbtn" style="font-size:10px" onclick="bkSearchNav(1)" title="next">▼</button>
     </div>
+    <div style="width:1px;height:14px;background:var(--border);margin:0 2px;flex-shrink:0"></div>
+    <button id="bk-draw-btn" class="lbtn" style="font-size:13px;padding:1px 6px" onclick="bkToggleDrawMode()" title="draw on PDF">✏</button>
+    <div id="bk-draw-colors">
+      <span class="bk-draw-dot sel" data-dcolor="#e53e3e" style="background:#e53e3e" onclick="bkSetDrawColor('#e53e3e')" title="red"></span>
+      <span class="bk-draw-dot" data-dcolor="#3b82f6" style="background:#3b82f6" onclick="bkSetDrawColor('#3b82f6')" title="blue"></span>
+      <span class="bk-draw-dot" data-dcolor="#22c55e" style="background:#22c55e" onclick="bkSetDrawColor('#22c55e')" title="green"></span>
+      <span class="bk-draw-dot" data-dcolor="#f59e0b" style="background:#f59e0b" onclick="bkSetDrawColor('#f59e0b')" title="amber"></span>
+      <span class="bk-draw-dot" data-dcolor="#111111" style="background:#111" onclick="bkSetDrawColor('#111111')" title="black"></span>
+      <button class="lbtn" style="font-size:9px;padding:1px 5px;margin-left:2px" onclick="bkClearPageDrawings()" title="clear drawings on this page">⌫</button>
+    </div>
     <button class="lbtn" style="font-size:11px;margin-left:4px" onclick="closeBookReader()">✕ close</button>
   </div>
   <div id="bk-reader-body">
@@ -635,8 +651,9 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
     </div>
     <div id="bk-divider"></div>
     <div id="bk-reader-panel">
-      <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;">
-        notes · autosaved
+      <div style="padding:7px 12px 6px;font-size:10px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;">
+        <span style="flex:1">notes · autosaved</span>
+        <button class="lbtn" style="font-size:9px;padding:1px 6px" onclick="bkAttachImage()" title="attach handwritten note image">📎 image</button>
       </div>
       <div id="bk-notes-body" style="flex:1;display:flex;flex-direction:column;overflow-y:auto;">
         <textarea id="bk-reader-notes" placeholder="General notes…" style="min-height:120px;flex-shrink:0;border-bottom:1px solid var(--border);border-radius:0;padding:10px 12px;resize:none;"></textarea>
@@ -1777,6 +1794,8 @@ var _bkCurrentId=null,_bkPdfDoc=null,_bkPages={},_bkSelPage=null,_bkSelText='',
     _bkResizing=false,_bkResizeStartX=0,_bkResizeStartW=360;
 var _bkHlColors={amber:'#f59e0b',green:'#22c55e',pink:'#ec4899',blue:'#3b82f6'};
 var _bkSearchTerm='',_bkSearchPages=[],_bkSearchPageIdx=0,_bkPageTexts={};
+var _bkDrawMode=false,_bkDrawColor='#e53e3e',_bkDrawWidth=3;
+var _bkIsDrawing=false,_bkDrawPts=[],_bkDrawActiveCanvas=null;
 
 function _openReaderFromR2(r2Key,title,onLoad){
   if(!window._pdfjsLib){toast('PDF viewer not ready — try again');return;}
@@ -1895,14 +1914,22 @@ function _bkRenderPageInWrap(pdf,pageNum,wrap,b,scale){
     var tl=document.createElement('div');tl.className='bk-text-layer';
     tl.style.cssText='height:'+vp.height+'px;width:'+vp.width+'px;';
     tl.style.setProperty('--scale-factor',scale);
-    wrap.appendChild(canvas);wrap.appendChild(tl);
+    var dc=document.createElement('canvas');
+    dc.className='bk-draw-canvas';
+    dc.width=Math.floor(vp.width*dpr);dc.height=Math.floor(vp.height*dpr);
+    dc.style.width=vp.width+'px';dc.style.height=vp.height+'px';
+    dc.style.pointerEvents=_bkDrawMode?'all':'none';
+    dc.style.cursor=_bkDrawMode?'crosshair':'default';
+    wrap.appendChild(canvas);wrap.appendChild(tl);wrap.appendChild(dc);
+    bkSetupDrawCanvas(dc,pageNum,b,vp.width,vp.height,dpr);
+    bkRedrawPage(dc,pageNum,b,vp.width,vp.height,dpr);
     var ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
     page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){
       page.getTextContent().then(function(tc){
         var textDivs=[];
         var tlTask=window._pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp,textDivs:textDivs});
         var tlDone=tlTask&&tlTask.promise?tlTask.promise:Promise.resolve();
-        var done=function(){_bkPages[pageNum]={tl:tl,textDivs:textDivs};bkApplyPageHighlights(b,pageNum);bkApplySearchHighlights(pageNum);};
+        var done=function(){_bkPages[pageNum]={tl:tl,textDivs:textDivs,dc:dc,w:vp.width,h:vp.height,dpr:dpr};bkApplyPageHighlights(b,pageNum);bkApplySearchHighlights(pageNum);};
         tlDone.then(done).catch(done);
       });
     });
@@ -2002,27 +2029,135 @@ function bkSetupSelection(){
   });
 }
 
+function bkToggleDrawMode(){
+  _bkDrawMode=!_bkDrawMode;
+  var btn=document.getElementById('bk-draw-btn');
+  if(btn){btn.style.background=_bkDrawMode?'var(--amber)':'';btn.style.color=_bkDrawMode?'#000':'';}
+  document.getElementById('bk-draw-colors').classList.toggle('open',_bkDrawMode);
+  document.querySelectorAll('.bk-draw-canvas').forEach(function(c){
+    c.style.pointerEvents=_bkDrawMode?'all':'none';
+    c.style.cursor=_bkDrawMode?'crosshair':'default';
+  });
+  document.querySelectorAll('.bk-text-layer').forEach(function(tl){
+    tl.style.pointerEvents=_bkDrawMode?'none':'auto';
+  });
+}
+function bkSetDrawColor(c){
+  _bkDrawColor=c;
+  document.querySelectorAll('.bk-draw-dot').forEach(function(d){d.classList.toggle('sel',d.dataset.dcolor===c);});
+}
+function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
+  function pos(e){
+    var r=dc.getBoundingClientRect();
+    var src=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
+    return [(src.clientX-r.left)/w,(src.clientY-r.top)/h];
+  }
+  function onDown(e){
+    if(!_bkDrawMode)return;
+    e.preventDefault();e.stopPropagation();
+    _bkIsDrawing=true;_bkDrawActiveCanvas=dc;
+    _bkDrawPts=[pos(e)];
+  }
+  function onMove(e){
+    if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
+    e.preventDefault();
+    var p=pos(e);_bkDrawPts.push(p);
+    var ctx=dc.getContext('2d');
+    ctx.save();ctx.scale(dpr,dpr);
+    ctx.strokeStyle=_bkDrawColor;ctx.lineWidth=_bkDrawWidth;
+    ctx.lineCap='round';ctx.lineJoin='round';
+    var n=_bkDrawPts.length;
+    if(n>=2){ctx.beginPath();ctx.moveTo(_bkDrawPts[n-2][0]*w,_bkDrawPts[n-2][1]*h);ctx.lineTo(p[0]*w,p[1]*h);ctx.stroke();}
+    ctx.restore();
+  }
+  function onUp(){
+    if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
+    _bkIsDrawing=false;_bkDrawActiveCanvas=null;
+    if(_bkDrawPts.length>1){
+      if(!b.drawings)b.drawings={};
+      if(!b.drawings[pageNum])b.drawings[pageNum]=[];
+      b.drawings[pageNum].push({pts:_bkDrawPts.slice(),color:_bkDrawColor,width:_bkDrawWidth});
+      if(b.id)save();
+    }
+    _bkDrawPts=[];
+  }
+  dc.addEventListener('pointerdown',onDown);
+  dc.addEventListener('pointermove',onMove);
+  dc.addEventListener('pointerup',onUp);
+  dc.addEventListener('pointercancel',onUp);
+  dc.addEventListener('touchstart',onDown,{passive:false});
+  dc.addEventListener('touchmove',onMove,{passive:false});
+  dc.addEventListener('touchend',onUp);
+}
+function bkRedrawPage(dc,pageNum,b,w,h,dpr){
+  if(!b.drawings||!b.drawings[pageNum]||!b.drawings[pageNum].length)return;
+  var ctx=dc.getContext('2d');
+  ctx.save();ctx.scale(dpr,dpr);
+  b.drawings[pageNum].forEach(function(s){
+    if(s.pts.length<2)return;
+    ctx.strokeStyle=s.color||'#e53e3e';ctx.lineWidth=s.width||3;
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(s.pts[0][0]*w,s.pts[0][1]*h);
+    for(var i=1;i<s.pts.length;i++)ctx.lineTo(s.pts[i][0]*w,s.pts[i][1]*h);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+function bkClearPageDrawings(){
+  var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
+  var container=document.getElementById('bk-reader-pages');
+  var cr=container.getBoundingClientRect();
+  var best=1;
+  document.querySelectorAll('.bk-page-wrap').forEach(function(p){
+    var pr=p.getBoundingClientRect();
+    if(pr.top<cr.bottom&&pr.bottom>cr.top)best=parseInt(p.dataset.page);
+  });
+  if(b){if(!b.drawings)b.drawings={};b.drawings[best]=[];save();}
+  var wrap=document.querySelector('.bk-page-wrap[data-page="'+best+'"]');
+  if(wrap){var dc=wrap.querySelector('.bk-draw-canvas');if(dc){var ctx=dc.getContext('2d');ctx.clearRect(0,0,dc.width,dc.height);}}
+}
+function bkAttachImage(){
+  var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
+  if(!b){toast('no book open');return;}
+  var fi=document.createElement('input');fi.type='file';fi.accept='image/*';
+  fi.onchange=function(){
+    if(!fi.files[0])return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      if(!b.inkImages)b.inkImages=[];
+      b.inkImages.push({id:'img_'+Date.now(),src:ev.target.result,label:fi.files[0].name});
+      save();bkRenderNotes(b);toast('image attached');
+    };
+    reader.readAsDataURL(fi.files[0]);
+  };
+  fi.click();
+}
 function bkSetupResize(){
   var handle=document.getElementById('bk-divider');
   if(!handle||handle.dataset.setup)return;
   handle.dataset.setup='1';
-  handle.addEventListener('mousedown',function(e){
-    _bkResizing=true;
-    _bkResizeStartX=e.clientX;
+  function startResize(x){
+    _bkResizing=true;_bkResizeStartX=x;
     _bkResizeStartW=document.getElementById('bk-reader-panel').offsetWidth;
-    document.body.style.cursor='col-resize';
-    document.body.style.userSelect='none';
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove',function(e){
+    handle.classList.add('dragging');
+    document.body.style.cursor='col-resize';document.body.style.userSelect='none';
+  }
+  function doResize(x){
     if(!_bkResizing)return;
-    var delta=_bkResizeStartX-e.clientX;
-    var nw=Math.max(180,Math.min(800,_bkResizeStartW+delta));
+    var nw=Math.max(60,Math.min(800,_bkResizeStartW+(_bkResizeStartX-x)));
     document.getElementById('bk-reader-panel').style.width=nw+'px';
-  });
-  document.addEventListener('mouseup',function(){
-    if(_bkResizing){_bkResizing=false;document.body.style.cursor='';document.body.style.userSelect='';}
-  });
+  }
+  function endResize(){
+    if(!_bkResizing)return;
+    _bkResizing=false;handle.classList.remove('dragging');
+    document.body.style.cursor='';document.body.style.userSelect='';
+  }
+  handle.addEventListener('mousedown',function(e){startResize(e.clientX);e.preventDefault();});
+  document.addEventListener('mousemove',function(e){doResize(e.clientX);});
+  document.addEventListener('mouseup',endResize);
+  handle.addEventListener('touchstart',function(e){startResize(e.touches[0].clientX);e.preventDefault();},{passive:false});
+  document.addEventListener('touchmove',function(e){if(_bkResizing){doResize(e.touches[0].clientX);e.preventDefault();}},{passive:false});
+  document.addEventListener('touchend',endResize);
 }
 
 function createHighlight(){
@@ -2060,32 +2195,53 @@ function createHighlight(){
 function bkRenderNotes(b){
   var ta=document.getElementById('bk-reader-notes');
   ta.value=b.notes||'';
-  ta.oninput=function(){b.notes=ta.value;save();};
+  ta.oninput=function(){b.notes=ta.value;if(b.id)save();};
   var list=document.getElementById('bk-hl-list');
   list.innerHTML='';
   if(!(b.highlights&&b.highlights.length)){
-    list.innerHTML='<div style="font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px 0">select text in the PDF to add a highlight</div>';
-    return;
+    list.innerHTML='<div style=”font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px 0”>select text in the PDF to add a highlight</div>';
+  } else {
+    var sorted=b.highlights.slice().sort(function(a,c){return a.page-c.page;});
+    sorted.forEach(function(hl){
+      var card=document.createElement('div');card.className='bk-hl-card';
+      card.style.borderLeftColor=_bkHlColors[hl.color||'amber']||_bkHlColors.amber;
+      var pg=document.createElement('div');pg.className='bk-hl-pg';pg.textContent='p. '+hl.page;
+      pg.onclick=function(){bkScrollToPage(hl.page);};
+      var del=document.createElement('button');del.className='bk-hl-del';del.textContent='✕';del.title='delete highlight';
+      del.onclick=function(){
+        b.highlights=b.highlights.filter(function(x){return x.id!==hl.id;});
+        save();bkRenderNotes(b);
+        if(_bkPages[hl.page])bkApplyPageHighlights(b,hl.page);
+      };
+      var quote=document.createElement('div');quote.className='bk-hl-quote';
+      quote.textContent='”'+(hl.text.length>120?hl.text.slice(0,120)+'…':hl.text)+'”';
+      var nta=document.createElement('textarea');nta.rows=2;nta.placeholder='note on this passage…';nta.value=hl.note||'';
+      nta.oninput=function(){hl.note=nta.value;save();};
+      card.appendChild(del);card.appendChild(pg);card.appendChild(quote);card.appendChild(nta);
+      list.appendChild(card);
+    });
   }
-  var sorted=b.highlights.slice().sort(function(a,c){return a.page-c.page;});
-  sorted.forEach(function(hl){
-    var card=document.createElement('div');card.className='bk-hl-card';
-    card.style.borderLeftColor=_bkHlColors[hl.color||'amber']||_bkHlColors.amber;
-    var pg=document.createElement('div');pg.className='bk-hl-pg';pg.textContent='p. '+hl.page;
-    pg.onclick=function(){bkScrollToPage(hl.page);};
-    var del=document.createElement('button');del.className='bk-hl-del';del.textContent='✕';del.title='delete highlight';
-    del.onclick=function(){
-      b.highlights=b.highlights.filter(function(x){return x.id!==hl.id;});
-      save();bkRenderNotes(b);
-      if(_bkPages[hl.page])bkApplyPageHighlights(b,hl.page);
-    };
-    var quote=document.createElement('div');quote.className='bk-hl-quote';
-    quote.textContent='“'+(hl.text.length>120?hl.text.slice(0,120)+'…':hl.text)+'”';
-    var nta=document.createElement('textarea');nta.rows=2;nta.placeholder='note on this passage…';nta.value=hl.note||'';
-    nta.oninput=function(){hl.note=nta.value;save();};
-    card.appendChild(del);card.appendChild(pg);card.appendChild(quote);card.appendChild(nta);
-    list.appendChild(card);
-  });
+  // attached images
+  var existingImgSec=document.getElementById('bk-img-section');
+  if(existingImgSec)existingImgSec.remove();
+  if(b.inkImages&&b.inkImages.length){
+    var imgSec=document.createElement('div');imgSec.id='bk-img-section';
+    imgSec.style.cssText='padding:8px 10px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);';
+    var imgHdr=document.createElement('div');imgHdr.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:2px;';
+    imgHdr.textContent='attached images';imgSec.appendChild(imgHdr);
+    b.inkImages.forEach(function(img){
+      var wrap=document.createElement('div');wrap.style.cssText='position:relative;';
+      var im=document.createElement('img');im.src=img.src;
+      im.style.cssText='width:100%;border-radius:4px;display:block;cursor:pointer;';
+      im.onclick=function(){var w=window.open('','_blank');w.document.write('<img src=”'+img.src+'” style=”max-width:100%;height:auto”>');};
+      var del=document.createElement('button');del.className='lbtn';del.textContent='✕';
+      del.style.cssText='position:absolute;top:4px;right:4px;font-size:9px;padding:1px 5px;opacity:.8;';
+      del.onclick=function(){b.inkImages=b.inkImages.filter(function(x){return x.id!==img.id;});save();bkRenderNotes(b);};
+      wrap.appendChild(im);wrap.appendChild(del);imgSec.appendChild(wrap);
+    });
+    var notesBody=document.getElementById('bk-notes-body');
+    if(notesBody)notesBody.appendChild(imgSec);
+  }
 }
 
 function bkScrollToPage(pageNum){
