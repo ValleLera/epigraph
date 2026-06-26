@@ -1825,24 +1825,24 @@ function bkApplyPageHighlights(b,pageNum){
   var hls=(b.highlights||[]).filter(function(h){return h.page===pageNum;});
   if(!hls.length)return;
   var spans=Array.from(tl.querySelectorAll('span'));
-  // add a space between span texts so cross-span phrases match correctly
-  var full='',map=[];
-  spans.forEach(function(s){
-    var st=full.length,txt=s.textContent;
-    full+=txt+' ';
-    map.push({s:st,e:st+txt.length,el:s});
-  });
   hls.forEach(function(hl){
-    var needle=hl.text;
-    var idx=full.indexOf(needle);
-    // fallback: normalize whitespace in both
-    if(idx<0){
-      var nf=full.replace(/\s+/g,' '),nn=needle.replace(/\s+/g,' ');
-      idx=nf.indexOf(nn);
+    var cls='bk-hl-'+(hl.color||'amber');
+    // primary: use stored span indices (set at creation time, immune to text-matching errors)
+    if(hl.spanIndices&&hl.spanIndices.length){
+      hl.spanIndices.forEach(function(i){if(spans[i])spans[i].classList.add(cls);});
+      return;
     }
+    // fallback for old highlights: text matching
+    var full='',map=[];
+    spans.forEach(function(s){
+      var st=full.length,txt=s.textContent;
+      full+=txt+' ';
+      map.push({s:st,e:st+txt.length,el:s});
+    });
+    var needle=hl.text,idx=full.indexOf(needle);
+    if(idx<0){var nf=full.replace(/\s+/g,' '),nn=needle.replace(/\s+/g,' ');idx=nf.indexOf(nn);}
     if(idx<0)return;
     var end=idx+needle.length;
-    var cls='bk-hl-'+(hl.color||'amber');
     map.forEach(function(m){if(m.e>idx&&m.s<end)m.el.classList.add(cls);});
   });
 }
@@ -1920,20 +1920,25 @@ function createHighlight(){
   if(!b)return;
   if(!b.highlights)b.highlights=[];
   var color=_bkHlColor||'amber';
-  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:color};
-  b.highlights.push(hl);
-  save();
-  // immediately mark the selected spans via the live selection range (most reliable)
+  var hl={id:'hl_'+Date.now(),page:_bkSelPage,text:_bkSelText,note:'',color:color,spanIndices:[]};
+  // capture which span indices intersect the live selection — this is the ground truth
   var cls='bk-hl-'+color;
   var pdata=_bkPages[_bkSelPage];
   var sel=window.getSelection();
   if(pdata&&sel&&sel.rangeCount>0){
     var range=sel.getRangeAt(0);
-    pdata.tl.querySelectorAll('span').forEach(function(span){
-      try{if(range.intersectsNode(span))span.classList.add(cls);}catch(e){}
+    var allSpans=Array.from(pdata.tl.querySelectorAll('span'));
+    allSpans.forEach(function(span,i){
+      try{
+        if(range.intersectsNode(span)){
+          hl.spanIndices.push(i);
+          span.classList.add(cls);
+        }
+      }catch(e){}
     });
   }
-  // also run text-match approach so highlights re-apply after zoom/re-render
+  b.highlights.push(hl);
+  save();
   bkApplyPageHighlights(b,_bkSelPage);
   bkRenderNotes(b);
   window.getSelection().removeAllRanges();
