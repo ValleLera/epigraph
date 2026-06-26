@@ -4756,6 +4756,15 @@ function copyBibtexById(id){
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc='pdfjs-worker.js';
   window._pdfjsLib=pdfjsLib;
+} else {
+  // Web/BOOX: local file not available, load from CDN
+  var _pjs=document.createElement('script');
+  _pjs.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  _pjs.onload=function(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    window._pdfjsLib=pdfjsLib;
+  };
+  document.head.appendChild(_pjs);
 }
 </script>
 <script>
