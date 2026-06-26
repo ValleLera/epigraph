@@ -1903,10 +1903,12 @@ function bkBuildPages(pdf,b,container){
     container.appendChild(wrap);
     _bkObserver.observe(wrap);
   }
-  // restore last reading position
+  // restore last reading position — defer so WebView has finished layout
   if(b.lastPage&&b.lastPage>1){
-    var target=container.querySelector('.bk-page-wrap[data-page="'+b.lastPage+'"]');
-    if(target)target.scrollIntoView({block:'start'});
+    setTimeout(function(){
+      var target=container.querySelector('.bk-page-wrap[data-page="'+b.lastPage+'"]');
+      if(target)container.scrollTop=target.offsetTop-16;
+    },120);
   }
 }
 
@@ -2460,21 +2462,23 @@ function bkApplySearchHighlights(pageNum){
   }
 }
 
+function bkSaveLastPage(){
+  if(!_bkCurrentId)return;
+  var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
+  if(!b)return;
+  var container=document.getElementById('bk-reader-pages');
+  var cr=container.getBoundingClientRect();
+  var best=1,bestVis=0;
+  document.querySelectorAll('.bk-page-wrap').forEach(function(p){
+    var pr=p.getBoundingClientRect();
+    var vis=Math.max(0,Math.min(pr.bottom,cr.bottom)-Math.max(pr.top,cr.top));
+    if(vis>bestVis){bestVis=vis;best=parseInt(p.dataset.page);}
+  });
+  if(best!==b.lastPage){b.lastPage=best;save();}
+}
 function closeBookReader(){
+  bkSaveLastPage();
   if(_bkObserver){_bkObserver.disconnect();_bkObserver=null;}
-  // save current page position
-  var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
-  if(b){
-    var container=document.getElementById('bk-reader-pages');
-    var cr=container.getBoundingClientRect();
-    var best=1,bestVis=0;
-    document.querySelectorAll('.bk-page-wrap').forEach(function(p){
-      var pr=p.getBoundingClientRect();
-      var vis=Math.max(0,Math.min(pr.bottom,cr.bottom)-Math.max(pr.top,cr.top));
-      if(vis>bestVis){bestVis=vis;best=parseInt(p.dataset.page);}
-    });
-    b.lastPage=best;save();
-  }
   document.getElementById('book-reader').classList.remove('open');
   document.getElementById('bk-hl-tip').style.display='none';
   document.getElementById('bk-search-wrap').classList.remove('open');
@@ -4874,6 +4878,11 @@ function renderPastDay(key, body){
 
 init();
 initResize();
+// save book position when user leaves the page / switches app on BOOX
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden')bkSaveLastPage();
+});
+window.addEventListener('pagehide',function(){bkSaveLastPage();});
 
 // ── PDF DROP IMPORT ────────────────────────────────────────────────────────────
 
