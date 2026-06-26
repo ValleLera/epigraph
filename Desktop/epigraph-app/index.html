@@ -4659,5 +4659,92 @@ if(window.pdfjsLib){
   window._pdfjsLib=pdfjsLib;
 }
 </script>
+<script>
+// ── ANDROID SHARE HANDLER ──
+// Runs when Capacitor delivers a shared file (image or PDF from BOOX Notes etc.)
+(function(){
+  function initShareHandler(){
+    if(!window.Capacitor)return;
+    var App=window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+    if(!App||!App.addListener)return;
+    App.addListener('appSendActionIntent',function(data){
+      handleSharedIntent(data);
+    });
+    // also check if app was launched via share intent
+    App.getLaunchUrl&&App.getLaunchUrl().then(function(r){
+      if(r&&r.url&&r.url.startsWith('epigraph://share'))handleSharedIntent(r);
+    }).catch(function(){});
+  }
+
+  window.handleSharedIntent=function(data){
+    var url=data&&(data.url||data.webUrl||'');
+    var type=data&&(data.type||'');
+    // show modal to pick paper and attach
+    openShareModal(url,type);
+  };
+
+  function openShareModal(fileUrl,mimeType){
+    var papers=(S.library||[]).slice().sort(function(a,b){
+      return (b.imported||'').localeCompare(a.imported||'');
+    });
+    var query='';
+    function filteredPapers(){
+      if(!query)return papers.slice(0,30);
+      var q=query.toLowerCase();
+      return papers.filter(function(p){
+        return (p.title||'').toLowerCase().includes(q)||(p.authors||'').toLowerCase().includes(q)||(p.year||'').includes(q);
+      }).slice(0,20);
+    }
+    function renderList(container){
+      container.innerHTML='';
+      filteredPapers().forEach(function(p){
+        var row=document.createElement('div');
+        row.style.cssText='padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;';
+        row.innerHTML='<div style="color:var(--text);line-height:1.4">'+esc(p.title||'untitled')+'</div>'
+          +'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+(p.year||'')+(p.first_author?' · '+esc(p.first_author):'')+'</div>';
+        row.onmouseenter=function(){this.style.background='var(--bg3)';};
+        row.onmouseleave=function(){this.style.background='';};
+        row.onclick=function(){attachSharedFile(p,fileUrl,mimeType);closeModal();};
+        container.appendChild(row);
+      });
+      if(!filteredPapers().length){
+        container.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text3);font-family:var(--mono)">no papers found</div>';
+      }
+    }
+    var html='<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px">attach shared file to paper</div>'
+      +'<div style="margin-bottom:8px"><input id="share-search" placeholder="search papers…" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;box-sizing:border-box"></div>'
+      +'<div id="share-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:4px"></div>'
+      +'<div class="mbtns"><button class="mbtn" onclick="closeModal()">cancel</button></div>';
+    showModal('',html);
+    var listEl=document.getElementById('share-list');
+    renderList(listEl);
+    var inp=document.getElementById('share-search');
+    inp.oninput=function(){query=inp.value.trim();renderList(listEl);};
+    inp.focus();
+  }
+
+  function attachSharedFile(paper,fileUrl,mimeType){
+    if(!fileUrl){toast('no file URL received');return;}
+    var isPdf=(mimeType||'').includes('pdf')||(fileUrl||'').toLowerCase().endsWith('.pdf');
+    if(isPdf){
+      paper.pdfPath=fileUrl;save();toast('PDF attached to "'+paper.title.slice(0,30)+'"');
+    } else {
+      // treat as image attachment — upload to R2 if configured, otherwise store URL
+      if(!paper.images)paper.images=[];
+      paper.images.push({url:fileUrl,added:new Date().toISOString()});
+      save();toast('Image attached to "'+paper.title.slice(0,30)+'"');
+    }
+    rtab('library');selectLibPaper(paper.id);
+  }
+
+  // init after Capacitor is ready
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',initShareHandler);
+  } else {
+    // Capacitor may load after DOM — wait a tick
+    setTimeout(initShareHandler,500);
+  }
+})();
+</script>
 </body>
 </html>
