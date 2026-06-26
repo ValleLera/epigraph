@@ -634,6 +634,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
       <button class="lbtn" style="font-size:10px" onclick="bkSearchNav(1)" title="next">▼</button>
     </div>
     <div style="width:1px;height:14px;background:var(--border);margin:0 2px;flex-shrink:0"></div>
+    <button class="lbtn" style="font-size:12px;padding:1px 5px" onclick="bkAddBookmark()" title="bookmark this page">🔖</button>
     <button class="lbtn" style="font-size:11px;padding:1px 5px" onclick="bkUndo()" title="undo (Cmd+Z)">↩</button>
     <button id="bk-draw-btn" class="lbtn" style="font-size:13px;padding:1px 6px" onclick="bkToggleDrawMode()" title="draw on PDF">✏</button>
     <div id="bk-draw-colors">
@@ -2308,6 +2309,36 @@ function bkRenderNotes(b){
   var ta=document.getElementById('bk-reader-notes');
   ta.value=b.notes||'';
   ta.oninput=function(){b.notes=ta.value;if(b.id)save();};
+  // bookmarks section
+  var existingBmSec=document.getElementById('bk-bm-section');
+  if(existingBmSec)existingBmSec.remove();
+  if(b.bookmarks&&b.bookmarks.length){
+    var bmSec=document.createElement('div');bmSec.id='bk-bm-section';
+    bmSec.style.cssText='padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;';
+    var bmHdr=document.createElement('div');bmHdr.style.cssText='font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;';
+    bmHdr.textContent='bookmarks';bmSec.appendChild(bmHdr);
+    var sorted=b.bookmarks.slice().sort(function(a,c){return a.page-c.page;});
+    sorted.forEach(function(bm){
+      var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:3px;';
+      var pg=document.createElement('span');pg.style.cssText='font-size:11px;font-family:var(--mono);color:var(--amber);cursor:pointer;flex-shrink:0;';
+      pg.textContent='p. '+bm.page;
+      pg.onclick=function(){
+        var container=document.getElementById('bk-reader-pages');
+        var target=container.querySelector('.bk-page-wrap[data-page=”'+bm.page+'”]');
+        if(target)container.scrollTop=target.offsetTop-16;
+      };
+      var lbl=document.createElement('input');lbl.type='text';lbl.placeholder='label…';lbl.value=bm.label||'';
+      lbl.style.cssText='flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:var(--mono);padding:1px 5px;outline:none;min-width:0;';
+      lbl.oninput=function(){bm.label=lbl.value;save();};
+      var del=document.createElement('button');del.className='lbtn';del.textContent='✕';del.style.cssText='font-size:9px;padding:1px 4px;flex-shrink:0;';
+      del.onclick=function(){b.bookmarks=b.bookmarks.filter(function(x){return x.id!==bm.id;});save();bkRenderNotes(b);};
+      row.appendChild(pg);row.appendChild(lbl);row.appendChild(del);
+      bmSec.appendChild(row);
+    });
+    var notesBody=document.getElementById('bk-notes-body');
+    var hlList=document.getElementById('bk-hl-list');
+    if(notesBody&&hlList)notesBody.insertBefore(bmSec,hlList);
+  }
   var list=document.getElementById('bk-hl-list');
   list.innerHTML='';
   if(!(b.highlights&&b.highlights.length)){
@@ -2462,10 +2493,7 @@ function bkApplySearchHighlights(pageNum){
   }
 }
 
-function bkSaveLastPage(){
-  if(!_bkCurrentId)return;
-  var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
-  if(!b)return;
+function bkCurrentPage(){
   var container=document.getElementById('bk-reader-pages');
   var cr=container.getBoundingClientRect();
   var best=1,bestVis=0;
@@ -2474,7 +2502,28 @@ function bkSaveLastPage(){
     var vis=Math.max(0,Math.min(pr.bottom,cr.bottom)-Math.max(pr.top,cr.top));
     if(vis>bestVis){bestVis=vis;best=parseInt(p.dataset.page);}
   });
+  return best;
+}
+function bkSaveLastPage(){
+  if(!_bkCurrentId)return;
+  var b=(S.books||[]).find(function(x){return x.id===_bkCurrentId;});
+  if(!b)return;
+  var best=bkCurrentPage();
   if(best!==b.lastPage){b.lastPage=best;save();}
+}
+function bkAddBookmark(){
+  var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
+  if(!b){toast('no book open');return;}
+  var pg=bkCurrentPage();
+  if(!b.bookmarks)b.bookmarks=[];
+  var existing=b.bookmarks.find(function(bm){return bm.page===pg;});
+  if(existing){
+    b.bookmarks=b.bookmarks.filter(function(bm){return bm.id!==existing.id;});
+    save();bkRenderNotes(b);toast('bookmark removed from p. '+pg);
+  } else {
+    b.bookmarks.push({id:'bm_'+Date.now(),page:pg,label:'',created:new Date().toISOString()});
+    save();bkRenderNotes(b);toast('bookmarked p. '+pg);
+  }
 }
 function closeBookReader(){
   bkSaveLastPage();
@@ -4883,6 +4932,12 @@ document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='hidden')bkSaveLastPage();
 });
 window.addEventListener('pagehide',function(){bkSaveLastPage();});
+// save position continuously while scrolling (survives hard kills on Android)
+var _bkScrollSaveTimer=null;
+document.getElementById('bk-reader-pages').addEventListener('scroll',function(){
+  clearTimeout(_bkScrollSaveTimer);
+  _bkScrollSaveTimer=setTimeout(bkSaveLastPage,800);
+});
 
 // ── PDF DROP IMPORT ────────────────────────────────────────────────────────────
 
