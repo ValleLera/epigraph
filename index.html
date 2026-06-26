@@ -473,12 +473,15 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
   #feed{display:none!important;}
   #right{width:100%!important;max-width:100%!important;border-left:none!important;flex:1!important;}
   #rt-claim,#rt-overview{display:none!important;}
+  #top-settings-btn{display:none!important;}
+  #rt-settings{display:flex!important;}
 }
 @media(min-width:768px){
   #feed-settings-btn,#feed-settings-panel{display:none!important;}
   #main{overflow-y:auto;}
   #top .tsep,#top #srchwrap,#top .tstat,#top .logo{display:none!important;}
   #top{padding:0 10px;}
+  #rt-settings{display:none!important;}
 }
 
 </style>
@@ -589,6 +592,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 <!-- RIGHT -->
 <div id="right">
   <div class="rtabs">
+    <div class="rtab" id="rt-settings" onclick="rtab('settings')" style="display:none">⚙</div>
     <div class="rtab on" id="rt-claim" onclick="rtab('claim')">claim</div>
     <div class="rtab" id="rt-library" onclick="rtab('library')">library</div>
     <div class="rtab" id="rt-books" onclick="rtab('books')">books</div>
@@ -2081,13 +2085,28 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
     e.preventDefault();
     if(_bkIsErasing&&_bkDrawActiveCanvas===dc){eraseAt(pos(e));return;}
     if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
-    var p=pos(e);_bkDrawPts.push(p);
+    var evts=e.getCoalescedEvents?e.getCoalescedEvents():[e];
     var ctx=dc.getContext('2d');
     ctx.save();ctx.scale(dpr,dpr);
     ctx.strokeStyle=_bkDrawColor;ctx.lineWidth=_bkDrawWidth;
     ctx.lineCap='round';ctx.lineJoin='round';
-    var n=_bkDrawPts.length;
-    if(n>=2){ctx.beginPath();ctx.moveTo(_bkDrawPts[n-2][0]*w,_bkDrawPts[n-2][1]*h);ctx.lineTo(p[0]*w,p[1]*h);ctx.stroke();}
+    evts.forEach(function(ev){
+      _bkDrawPts.push(pos(ev));
+      var n=_bkDrawPts.length;
+      if(n<2)return;
+      ctx.beginPath();
+      if(n===2){
+        ctx.moveTo(_bkDrawPts[0][0]*w,_bkDrawPts[0][1]*h);
+        ctx.lineTo(_bkDrawPts[1][0]*w,_bkDrawPts[1][1]*h);
+      } else {
+        var p0=_bkDrawPts[n-3],p1=_bkDrawPts[n-2],p2=_bkDrawPts[n-1];
+        var sx=(p0[0]+p1[0])/2*w, sy=(p0[1]+p1[1])/2*h;
+        var ex=(p1[0]+p2[0])/2*w, ey=(p1[1]+p2[1])/2*h;
+        ctx.moveTo(sx,sy);
+        ctx.quadraticCurveTo(p1[0]*w,p1[1]*h,ex,ey);
+      }
+      ctx.stroke();
+    });
     ctx.restore();
   }
   function onUp(e){
