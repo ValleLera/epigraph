@@ -404,7 +404,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 .bk-draw-dot.sel{border-color:var(--text);}
 .bk-page-wrap{position:relative;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);flex-shrink:0;}
 .bk-page-wrap canvas{display:block;pointer-events:none;}
-.bk-draw-canvas{position:absolute;top:0;left:0;z-index:3;touch-action:none;pointer-events:none;}
+.bk-draw-canvas{position:absolute;top:0;left:0;z-index:3;touch-action:pan-x pan-y;pointer-events:none;}
 .bk-text-layer{position:absolute;top:0;left:0;overflow:hidden;opacity:1;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:2;user-select:text;}
 .bk-text-layer span,.bk-text-layer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;user-select:text;}
 .bk-text-layer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;user-select:none;}
@@ -638,7 +638,6 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
       <span class="bk-draw-dot" data-dcolor="#22c55e" style="background:#22c55e" onclick="bkSetDrawColor('#22c55e')" title="green"></span>
       <span class="bk-draw-dot" data-dcolor="#f59e0b" style="background:#f59e0b" onclick="bkSetDrawColor('#f59e0b')" title="amber"></span>
       <span class="bk-draw-dot" data-dcolor="#111111" style="background:#111" onclick="bkSetDrawColor('#111111')" title="black"></span>
-      <button class="lbtn" style="font-size:9px;padding:1px 5px;margin-left:2px" onclick="bkClearPageDrawings()" title="clear drawings on this page">⌫</button>
     </div>
     <button class="lbtn" style="font-size:11px;margin-left:4px" onclick="closeBookReader()">✕ close</button>
   </div>
@@ -2072,13 +2071,13 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
     if(b.id)save();
   }
   function onDown(e){
-    if(!_bkDrawMode)return;
+    if(!_bkDrawMode||e.pointerType==='touch'||e.pointerType==='mouse')return;
     e.preventDefault();e.stopPropagation();
     if(isPenEraser(e)){_bkIsErasing=true;_bkDrawActiveCanvas=dc;eraseAt(pos(e));return;}
     _bkIsDrawing=true;_bkDrawActiveCanvas=dc;_bkDrawPts=[pos(e)];
   }
   function onMove(e){
-    if(!_bkDrawMode)return;
+    if(!_bkDrawMode||e.pointerType==='touch'||e.pointerType==='mouse')return;
     e.preventDefault();
     if(_bkIsErasing&&_bkDrawActiveCanvas===dc){eraseAt(pos(e));return;}
     if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
@@ -2091,7 +2090,8 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
     if(n>=2){ctx.beginPath();ctx.moveTo(_bkDrawPts[n-2][0]*w,_bkDrawPts[n-2][1]*h);ctx.lineTo(p[0]*w,p[1]*h);ctx.stroke();}
     ctx.restore();
   }
-  function onUp(){
+  function onUp(e){
+    if(e&&(e.pointerType==='touch'||e.pointerType==='mouse'))return;
     if(_bkIsErasing&&_bkDrawActiveCanvas===dc){_bkIsErasing=false;_bkDrawActiveCanvas=null;return;}
     if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
     _bkIsDrawing=false;_bkDrawActiveCanvas=null;
@@ -2110,9 +2110,6 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
   dc.addEventListener('pointermove',onMove);
   dc.addEventListener('pointerup',onUp);
   dc.addEventListener('pointercancel',onUp);
-  dc.addEventListener('touchstart',onDown,{passive:false});
-  dc.addEventListener('touchmove',onMove,{passive:false});
-  dc.addEventListener('touchend',onUp);
 }
 function bkRedrawPage(dc,pageNum,b,w,h,dpr){
   if(!b.drawings||!b.drawings[pageNum]||!b.drawings[pageNum].length)return;
