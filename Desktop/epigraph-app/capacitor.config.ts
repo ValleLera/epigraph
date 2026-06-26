@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Epigraph',
   webDir: 'www',
   server: {
-    url: 'https://epigraph-pi.vercel.app',
+    url: 'https://epigraph-pi.vercel.app?theme=eink',
     cleartext: false
   }
 };
