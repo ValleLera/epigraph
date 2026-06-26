@@ -1452,11 +1452,14 @@ function selectLibPaper(id){
         });
       };
     } else if(p.pdfR2Key){
-      var c=syncCfg();
       pdfOpenBtn.textContent='open PDF';
       pdfOpenBtn.onclick=function(){
-        var url=(c.url||'').replace(/\/+$/,'')+'/pdf/'+encodeURIComponent(p.pdfR2Key);
-        window.open(url+'?token='+encodeURIComponent(c.token||''),'_blank');
+        _bkCurrentId=null;
+        _bkPdfDoc=null;_bkPages={};_bkZoom=1;
+        bkRenderNotes({highlights:[],notes:'',id:null});
+        _openReaderFromR2(p.pdfR2Key,p.title||'Paper',function(pdf,container){
+          bkBuildPages(pdf,{id:null,highlights:[]},container);
+        });
       };
     } else {
       pdfOpenBtn.textContent='PDF not synced to cloud yet';
@@ -1775,23 +1778,26 @@ var _bkCurrentId=null,_bkPdfDoc=null,_bkPages={},_bkSelPage=null,_bkSelText='',
 var _bkHlColors={amber:'#f59e0b',green:'#22c55e',pink:'#ec4899',blue:'#3b82f6'};
 var _bkSearchTerm='',_bkSearchPages=[],_bkSearchPageIdx=0,_bkPageTexts={};
 
-function openBookReader(id){
-  var b=(S.books||[]).find(function(x){return x.id===id;});
-  if(!b){toast('book not found');return;}
-  if(!b.pdfPath){toast('no PDF attached — open the book and add one first');return;}
-  _bkCurrentId=id;_bkPdfDoc=null;_bkPages={};_bkZoom=1;
-  if(!b.highlights)b.highlights=[];
-  document.getElementById('bk-reader-title').textContent=b.title;
+function _openReaderFromR2(r2Key,title,onLoad){
+  if(!window._pdfjsLib){toast('PDF viewer not ready — try again');return;}
+  var c=syncCfg();
+  if(!c.url||!c.token){toast('sync not configured — add worker URL + token in settings');return;}
+  document.getElementById('bk-reader-title').textContent=title;
   document.getElementById('bk-zoom-pct').textContent='100%';
   var container=document.getElementById('bk-reader-pages');
-  container.innerHTML='<div style="color:#ccc;font-family:var(--mono);font-size:12px;padding:40px">loading PDF…</div>';
-  bkRenderNotes(b);
+  container.innerHTML='<div style="color:#ccc;font-family:var(--mono);font-size:12px;padding:40px">fetching from cloud…</div>';
   document.getElementById('book-reader').classList.add('open');
-  bkSetupSelection();
-  bkSetupResize();
-  if(!window._pdfjsLib){toast('PDF viewer not ready — try again in a moment');return;}
-  function _bkLoadBytes(data){
-    window._pdfjsLib.getDocument({data:data}).promise.then(function(pdf){
+  bkSetupSelection();bkSetupResize();
+  var url=c.url.replace(/\/+$/,'')+'/pdf/'+encodeURIComponent(r2Key)+'?token='+encodeURIComponent(c.token||'');
+  fetch(url).then(function(resp){
+    if(!resp.ok){
+      container.innerHTML='<div style="color:var(--text3);font-family:var(--mono);font-size:12px;padding:40px">failed to fetch PDF ('+resp.status+')<br>Check your sync token in settings.</div>';
+      return null;
+    }
+    return resp.arrayBuffer();
+  }).then(function(buf){
+    if(!buf)return;
+    window._pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise.then(function(pdf){
       _bkPdfDoc=pdf;_bkPageTexts={};
       document.getElementById('bk-reader-page-info').textContent=pdf.numPages+' pages';
       bkIndexAllPages(pdf);
@@ -1800,26 +1806,50 @@ function openBookReader(id){
         _bkNativeW=nv.width;_bkNativeH=nv.height;
         var avail=container.clientWidth-48;
         _bkScale=Math.max(0.5,Math.min(3,avail/nv.width));
-        bkBuildPages(pdf,b,container);
+        if(onLoad)onLoad(pdf,container);
       });
     }).catch(function(e){toast('PDF error: '+e.message);});
-  }
+  }).catch(function(e){toast('failed to load PDF: '+e.message);});
+}
+
+function openBookReader(id){
+  var b=(S.books||[]).find(function(x){return x.id===id;});
+  if(!b){toast('book not found');return;}
+  if(!b.pdfPath&&!b.pdfR2Key){toast('no PDF attached — open the book and add one first');return;}
+  _bkCurrentId=id;_bkPdfDoc=null;_bkPages={};_bkZoom=1;
+  if(!b.highlights)b.highlights=[];
+  bkRenderNotes(b);
   if(window.epigraph&&window.epigraph.isElectron){
+    if(!window._pdfjsLib){toast('PDF viewer not ready — try again in a moment');return;}
+    document.getElementById('bk-reader-title').textContent=b.title;
+    document.getElementById('bk-zoom-pct').textContent='100%';
+    var container=document.getElementById('bk-reader-pages');
+    container.innerHTML='<div style="color:#ccc;font-family:var(--mono);font-size:12px;padding:40px">loading PDF…</div>';
+    document.getElementById('book-reader').classList.add('open');
+    bkSetupSelection();bkSetupResize();
     window.epigraph.readFileBytes(b.pdfPath).then(function(r){
       if(!r.ok){toast('cannot read PDF: '+(r.error||'unknown'));return;}
-      _bkLoadBytes(new Uint8Array(r.buffer));
+      window._pdfjsLib.getDocument({data:new Uint8Array(r.buffer)}).promise.then(function(pdf){
+        _bkPdfDoc=pdf;_bkPageTexts={};
+        document.getElementById('bk-reader-page-info').textContent=pdf.numPages+' pages';
+        bkIndexAllPages(pdf);
+        pdf.getPage(1).then(function(p1){
+          var nv=p1.getViewport({scale:1});
+          _bkNativeW=nv.width;_bkNativeH=nv.height;
+          var avail=container.clientWidth-48;
+          _bkScale=Math.max(0.5,Math.min(3,avail/nv.width));
+          bkBuildPages(pdf,b,container);
+        });
+      }).catch(function(e){toast('PDF error: '+e.message);});
     });
   } else if(b.pdfR2Key){
-    var c=syncCfg();
-    var url=c.url.replace(/\/+$/,'')+'/pdf/'+encodeURIComponent(b.pdfR2Key)+'?token='+encodeURIComponent(c.token||'');
-    fetch(url).then(function(resp){
-      if(!resp.ok){toast('cannot fetch PDF from cloud ('+resp.status+')');return null;}
-      return resp.arrayBuffer();
-    }).then(function(buf){
-      if(buf)_bkLoadBytes(new Uint8Array(buf));
-    }).catch(function(e){toast('failed to load PDF: '+e.message);});
+    _openReaderFromR2(b.pdfR2Key,b.title,function(pdf,container){bkBuildPages(pdf,b,container);});
   } else {
-    container.innerHTML='<div style="color:var(--text3);font-family:var(--mono);font-size:12px;padding:40px;line-height:1.8">PDF not synced to cloud yet.<br>Open this book on the desktop app — it will upload automatically.</div>';
+    var container=document.getElementById('bk-reader-pages');
+    document.getElementById('bk-reader-title').textContent=b.title;
+    container.innerHTML='<div style="color:var(--text3);font-family:var(--mono);font-size:12px;padding:40px;line-height:1.8">PDF not synced to cloud yet.<br>Open this book on the Mac app first — it uploads automatically on startup.</div>';
+    document.getElementById('book-reader').classList.add('open');
+    bkSetupSelection();bkSetupResize();
   }
 }
 
