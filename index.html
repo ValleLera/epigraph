@@ -630,6 +630,7 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
       <button class="lbtn" style="font-size:10px" onclick="bkSearchNav(1)" title="next">▼</button>
     </div>
     <div style="width:1px;height:14px;background:var(--border);margin:0 2px;flex-shrink:0"></div>
+    <button class="lbtn" style="font-size:11px;padding:1px 5px" onclick="bkUndo()" title="undo (Cmd+Z)">↩</button>
     <button id="bk-draw-btn" class="lbtn" style="font-size:13px;padding:1px 6px" onclick="bkToggleDrawMode()" title="draw on PDF">✏</button>
     <div id="bk-draw-colors">
       <span class="bk-draw-dot sel" data-dcolor="#e53e3e" style="background:#e53e3e" onclick="bkSetDrawColor('#e53e3e')" title="red"></span>
@@ -1795,7 +1796,8 @@ var _bkCurrentId=null,_bkPdfDoc=null,_bkPages={},_bkSelPage=null,_bkSelText='',
 var _bkHlColors={amber:'#f59e0b',green:'#22c55e',pink:'#ec4899',blue:'#3b82f6'};
 var _bkSearchTerm='',_bkSearchPages=[],_bkSearchPageIdx=0,_bkPageTexts={};
 var _bkDrawMode=false,_bkDrawColor='#e53e3e',_bkDrawWidth=3;
-var _bkIsDrawing=false,_bkDrawPts=[],_bkDrawActiveCanvas=null;
+var _bkIsDrawing=false,_bkIsErasing=false,_bkDrawPts=[],_bkDrawActiveCanvas=null;
+var _bkUndoStack=[];
 
 function _openReaderFromR2(r2Key,title,onLoad){
   if(!window._pdfjsLib){toast('PDF viewer not ready — try again');return;}
@@ -2020,12 +2022,10 @@ function bkSetupSelection(){
     setTimeout(bkCheckSel,30);
   });
   document.addEventListener('keydown',function(e){
-    if((e.metaKey||e.ctrlKey)&&e.key==='f'){
-      if(document.getElementById('book-reader').classList.contains('open')){
-        e.preventDefault();
-        bkToggleSearch();
-      }
-    }
+    var inReader=document.getElementById('book-reader').classList.contains('open');
+    if(!inReader)return;
+    if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();bkToggleSearch();}
+    if((e.metaKey||e.ctrlKey)&&e.key==='z'){e.preventDefault();bkUndo();}
   });
 }
 
@@ -2052,15 +2052,36 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
     var src=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
     return [(src.clientX-r.left)/w,(src.clientY-r.top)/h];
   }
+  function isPenEraser(e){return e.pointerType==='pen'&&(e.buttons===32||e.button===5);}
+  function eraseAt(p){
+    if(!b.drawings||!b.drawings[pageNum])return;
+    var rad=22/Math.max(w,h);
+    var kept=[],removed=[];
+    b.drawings[pageNum].forEach(function(s){
+      var hit=s.pts.some(function(pt){var dx=pt[0]-p[0],dy=pt[1]-p[1];return dx*dx+dy*dy<rad*rad;});
+      if(hit)removed.push(s);else kept.push(s);
+    });
+    if(!removed.length)return;
+    removed.forEach(function(s){
+      _bkUndoStack.push({type:'eraseStroke',bookId:b.id,page:pageNum,stroke:s});
+      if(_bkUndoStack.length>60)_bkUndoStack.shift();
+    });
+    b.drawings[pageNum]=kept;
+    var ctx=dc.getContext('2d');ctx.clearRect(0,0,dc.width,dc.height);
+    bkRedrawPage(dc,pageNum,b,w,h,dpr);
+    if(b.id)save();
+  }
   function onDown(e){
     if(!_bkDrawMode)return;
     e.preventDefault();e.stopPropagation();
-    _bkIsDrawing=true;_bkDrawActiveCanvas=dc;
-    _bkDrawPts=[pos(e)];
+    if(isPenEraser(e)){_bkIsErasing=true;_bkDrawActiveCanvas=dc;eraseAt(pos(e));return;}
+    _bkIsDrawing=true;_bkDrawActiveCanvas=dc;_bkDrawPts=[pos(e)];
   }
   function onMove(e){
-    if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
+    if(!_bkDrawMode)return;
     e.preventDefault();
+    if(_bkIsErasing&&_bkDrawActiveCanvas===dc){eraseAt(pos(e));return;}
+    if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
     var p=pos(e);_bkDrawPts.push(p);
     var ctx=dc.getContext('2d');
     ctx.save();ctx.scale(dpr,dpr);
@@ -2071,12 +2092,16 @@ function bkSetupDrawCanvas(dc,pageNum,b,w,h,dpr){
     ctx.restore();
   }
   function onUp(){
+    if(_bkIsErasing&&_bkDrawActiveCanvas===dc){_bkIsErasing=false;_bkDrawActiveCanvas=null;return;}
     if(!_bkIsDrawing||_bkDrawActiveCanvas!==dc)return;
     _bkIsDrawing=false;_bkDrawActiveCanvas=null;
     if(_bkDrawPts.length>1){
       if(!b.drawings)b.drawings={};
       if(!b.drawings[pageNum])b.drawings[pageNum]=[];
-      b.drawings[pageNum].push({pts:_bkDrawPts.slice(),color:_bkDrawColor,width:_bkDrawWidth});
+      var stroke={pts:_bkDrawPts.slice(),color:_bkDrawColor,width:_bkDrawWidth};
+      b.drawings[pageNum].push(stroke);
+      _bkUndoStack.push({type:'addStroke',bookId:b.id,page:pageNum});
+      if(_bkUndoStack.length>60)_bkUndoStack.shift();
       if(b.id)save();
     }
     _bkDrawPts=[];
@@ -2112,9 +2137,61 @@ function bkClearPageDrawings(){
     var pr=p.getBoundingClientRect();
     if(pr.top<cr.bottom&&pr.bottom>cr.top)best=parseInt(p.dataset.page);
   });
-  if(b){if(!b.drawings)b.drawings={};b.drawings[best]=[];save();}
+  if(b){
+    if(!b.drawings)b.drawings={};
+    if(b.drawings[best]&&b.drawings[best].length){
+      _bkUndoStack.push({type:'clearPage',bookId:b.id,page:best,strokes:b.drawings[best].slice()});
+    }
+    b.drawings[best]=[];save();
+  }
   var wrap=document.querySelector('.bk-page-wrap[data-page="'+best+'"]');
   if(wrap){var dc=wrap.querySelector('.bk-draw-canvas');if(dc){var ctx=dc.getContext('2d');ctx.clearRect(0,0,dc.width,dc.height);}}
+}
+function bkUndo(){
+  if(!_bkUndoStack.length){toast('nothing to undo');return;}
+  var op=_bkUndoStack.pop();
+  var b=(S.books||[]).find(function(x){return x.id===op.bookId;});
+  if(op.type==='addStroke'){
+    if(!b||!b.drawings||!b.drawings[op.page]||!b.drawings[op.page].length)return;
+    b.drawings[op.page].pop();
+    if(b.id)save();
+    _bkRedrawPageById(op.page);
+    toast('stroke removed');
+  } else if(op.type==='eraseStroke'){
+    if(!b)return;
+    if(!b.drawings)b.drawings={};
+    if(!b.drawings[op.page])b.drawings[op.page]=[];
+    b.drawings[op.page].push(op.stroke);
+    if(b.id)save();
+    _bkRedrawPageById(op.page);
+    toast('stroke restored');
+  } else if(op.type==='clearPage'){
+    if(!b)return;
+    if(!b.drawings)b.drawings={};
+    b.drawings[op.page]=op.strokes;
+    if(b.id)save();
+    _bkRedrawPageById(op.page);
+    toast('page drawings restored');
+  } else if(op.type==='highlight'){
+    if(!b)return;
+    if(!b.highlights)b.highlights=[];
+    b.highlights.push(op.hl);
+    save();bkRenderNotes(b);
+    if(_bkPages[op.hl.page])bkApplyPageHighlights(b,op.hl.page);
+    toast('highlight restored');
+  }
+}
+function _bkRedrawPageById(pageNum){
+  var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
+  var wrap=document.querySelector('.bk-page-wrap[data-page="'+pageNum+'"]');
+  if(!wrap)return;
+  var pdata=_bkPages[pageNum];
+  if(!pdata)return;
+  var dc=pdata.dc||wrap.querySelector('.bk-draw-canvas');
+  if(dc){
+    var ctx=dc.getContext('2d');ctx.clearRect(0,0,dc.width,dc.height);
+    if(b)bkRedrawPage(dc,pageNum,b,pdata.w,pdata.h,pdata.dpr);
+  }
 }
 function bkAttachImage(){
   var b=_bkCurrentId?(S.books||[]).find(function(x){return x.id===_bkCurrentId;}):null;
@@ -2209,6 +2286,8 @@ function bkRenderNotes(b){
       pg.onclick=function(){bkScrollToPage(hl.page);};
       var del=document.createElement('button');del.className='bk-hl-del';del.textContent='✕';del.title='delete highlight';
       del.onclick=function(){
+        _bkUndoStack.push({type:'highlight',bookId:b.id,hl:JSON.parse(JSON.stringify(hl))});
+        if(_bkUndoStack.length>60)_bkUndoStack.shift();
         b.highlights=b.highlights.filter(function(x){return x.id!==hl.id;});
         save();bkRenderNotes(b);
         if(_bkPages[hl.page])bkApplyPageHighlights(b,hl.page);
@@ -2357,6 +2436,9 @@ function closeBookReader(){
   document.getElementById('bk-search-count').textContent='';
   _bkCurrentId=null;_bkPdfDoc=null;_bkPages={};
   _bkSearchTerm='';_bkSearchPages=[];_bkPageTexts={};
+  _bkUndoStack=[];_bkDrawMode=false;
+  var btn=document.getElementById('bk-draw-btn');if(btn){btn.style.background='';btn.style.color='';}
+  var dc=document.getElementById('bk-draw-colors');if(dc)dc.classList.remove('open');
 }
 
 // ── PROJECTS ──
