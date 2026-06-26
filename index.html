@@ -215,7 +215,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #maphint{position:absolute;top:50px;left:50%;transform:translateX(-50%);font-size:0.85rem;font-family:var(--mono);color:var(--text3);pointer-events:none;transition:opacity .5s;white-space:nowrap;}
 
 /* RIGHT */
-#right{width:340px;flex-shrink:0;min-width:180px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#right{width:420px;flex-shrink:0;min-width:180px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 .rtabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .rtabs::-webkit-scrollbar{display:none;}
 .rtab{flex-shrink:0;padding:9px 10px;font-size:0.85rem;font-family:var(--mono);color:var(--text3);cursor:pointer;text-align:center;transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;}
@@ -583,7 +583,6 @@ input[type=range].sslider{width:100px;accent-color:var(--amber);}
 <!-- RIGHT -->
 <div id="right">
   <div class="rtabs">
-    <div class="rtab" id="rt-settings" onclick="rtab('settings')">⚙</div>
     <div class="rtab on" id="rt-claim" onclick="rtab('claim')">claim</div>
     <div class="rtab" id="rt-library" onclick="rtab('library')">library</div>
     <div class="rtab" id="rt-books" onclick="rtab('books')">books</div>
@@ -1188,7 +1187,7 @@ function filterMap(f){mapF=f;document.querySelectorAll('.mtbtn[data-f]').forEach
 function toggleWeak(){weakMode=!weakMode;document.getElementById('weakbtn').classList.toggle('on',weakMode);renderMap();toast(weakMode?'showing weak claims':'showing all');}
 
 // ══ RIGHT PANEL ══
-function rtab(tab){rightTab=tab;document.querySelectorAll('.rtab').forEach(function(t){t.classList.remove('on');});document.getElementById('rt-'+tab).classList.add('on');renderRight();}
+function rtab(tab){rightTab=tab;document.querySelectorAll('.rtab').forEach(function(t){t.classList.remove('on');});var el=document.getElementById('rt-'+tab);if(el)el.classList.add('on');renderRight();}
 function renderRight(){
   if(rightTab==='claim')renderClaimDetail();
   else if(rightTab==='library')renderLibrary();
