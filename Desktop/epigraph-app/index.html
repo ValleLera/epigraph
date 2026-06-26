@@ -45,6 +45,16 @@
   --c-est:#44d050;--c-lik:#c8c020;--c-con:#c04040;--c-spe:#506840;--c-yrs:#8060c0;
   --s-jam:#c08020;--s-col:#44d050;--s-yap:#8060c0;--s-nuc:#40c898;
 }
+[data-theme="eink"]{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#eeeeee;--bg4:#e4e4e4;
+  --border:#cccccc;--border2:#aaaaaa;
+  --text:#111111;--text2:#444444;--text3:#888888;
+  --amber:#1a7a56;--green:#1a7a56;--red:#b00020;--orange:#7a4000;--purple:#4a2080;--cyan:#005a7a;
+  --c-est:#1a7a56;--c-lik:#7a4000;--c-con:#b00020;--c-spe:#555555;--c-yrs:#4a2080;
+  --s-jam:#7a4000;--s-col:#1a7a56;--s-yap:#4a2080;--s-nuc:#005a7a;
+}
+[data-theme="eink"] *{transition:none!important;}
+[data-theme="eink"] canvas{image-rendering:crisp-edges;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--font-size-base);}
 
@@ -748,6 +758,9 @@ async function init(){
     var today=new Date().toDateString();
     if(S.lastOpen!==today){var d=Math.floor((new Date(today)-new Date(S.lastOpen))/864e5);S.streak=d===1?S.streak+1:1;S.lastOpen=today;save();}
     if(!S.library)S.library=[];if(!S.books)S.books=[];if(!S.inbox)S.inbox=[];if(!S.dailyNotes)S.dailyNotes={};
+    // ?theme=eink in URL overrides saved setting (for BOOX bookmark)
+    var _urlTheme=new URLSearchParams(window.location.search).get('theme');
+    if(_urlTheme==='eink')S.settings.theme='eink';
     applyTheme(S.settings.theme||'void');
     applyFontSize(S.settings.fontSize||13);
     var badPdf=false;
@@ -3776,6 +3789,13 @@ function addInboxToLib(id){
 }
 function applyTheme(name){
   document.documentElement.setAttribute('data-theme',name||'void');
+  // e-ink screens are physically larger — bump base font one step unless user already set a custom size
+  if(name==='eink'&&!(S.settings&&S.settings.fontSizeOverride)){
+    document.documentElement.style.setProperty('--font-size-base','15px');
+  } else if(name!=='eink'){
+    var sz=(S.settings&&S.settings.fontSize)||13;
+    document.documentElement.style.setProperty('--font-size-base',sz+'px');
+  }
 }
 function setTheme(name){
   S.settings.theme=name;save();applyTheme(name);
@@ -4056,7 +4076,7 @@ function renderFeedSettings(targetEl){
 
   var curTheme=S.settings.theme||'void';
   var themeRow=document.createElement('div');themeRow.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px';
-  [{k:'void',label:'void'},{k:'sepia',label:'sepia'},{k:'terminal',label:'terminal'},{k:'phosphor',label:'phosphor'}].forEach(function(t){
+  [{k:'void',label:'void'},{k:'sepia',label:'sepia'},{k:'terminal',label:'terminal'},{k:'phosphor',label:'phosphor'},{k:'eink',label:'e-ink'}].forEach(function(t){
     var b=document.createElement('button');b.className='lbtn theme-opt'+(curTheme===t.k?' on':'');
     b.dataset.theme=t.k;b.style.flex='1';b.textContent=t.label;
     b.onclick=function(){setTheme(t.k);};
